@@ -1,6 +1,8 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
     <head>
         <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <script src="/webui.js"></script>
         <title>Signer</title>
     </head>
@@ -9,15 +11,15 @@
         <select onclick="p()" id="c" style="display:block; width:90%; margin:1rem auto;"></select>
         <input id="p" type="text" placeholder="0000" />
         <button onclick="s(); return false">Sign</button>
-        <button onclick="p(); return false">get</button>
+        <button onclick="r(); return false">get</button>
     </form>
     <script>
     function s() {
         const c = parseInt(document.getElementById('c').value, 10);
         const p = document.getElementById('p').value;
         pin(c, p);
-    }
-    function p() {
+    };
+    function r() {
         var crt = document.getElementById('c');
             var e = document.createElement('option');
             e.value = "as";
@@ -33,7 +35,7 @@
         //     e.text = c.name;
         //     crt.appendChild(e);
         // });
-    }
+    };
     </script>
 </body>
 </html>
