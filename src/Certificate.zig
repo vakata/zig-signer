@@ -44,7 +44,7 @@ pub const Certificate = struct {
             try Node.fromValue(arena_allocator, .object_identifier, .{ .string = "1.2.840.113549.1.7.2" }),
             try Node.fromChildren(arena_allocator, ._explicit0, &[_]*Node{ // signed data wrapper
                 try Node.fromChildren(arena_allocator, .sequence, &[_]*Node{
-                    try Node.fromValue(allocator, .integer, .{ .int = 1 }),
+                    try Node.fromValue(arena_allocator, .integer, .{ .int = 1 }),
                     try Node.fromChildren(arena_allocator, .set, &[_]*Node{ // digest
                         try Node.fromChildren(arena_allocator, .sequence, &[_]*Node{ // algo
                             try Node.fromValue(arena_allocator, .object_identifier, .{ .string = "2.16.840.1.101.3.4.2.1" }),

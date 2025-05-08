@@ -377,7 +377,7 @@ pub fn encodeValue(allocator: std.mem.Allocator, tag: Tag, val: Val) ![]const u8
             switch (val) {
                 .int => |value| {
                     var tmp: [8]u8 = undefined;
-                    std.mem.writeInt(u64, &tmp, value, std.builtin.Endian.big);
+                    std.mem.writeInt(u64, tmp[0..8], value, std.builtin.Endian.big);
                     var i: u8 = 0;
                     while (i < 7 and tmp[i] == 0) {
                         i += 1;
@@ -385,7 +385,10 @@ pub fn encodeValue(allocator: std.mem.Allocator, tag: Tag, val: Val) ![]const u8
                     if (i > 0 and tmp[i] & 0x80 != 0) {
                         i -= 1;
                     }
-                    return tmp[i..];
+                    var enc = std.ArrayList(u8).init(allocator);
+                    defer enc.deinit();
+                    try enc.appendSlice(tmp[i..]);
+                    return enc.toOwnedSlice();
                 },
                 else => return error.InvalidType,
             }

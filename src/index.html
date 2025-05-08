@@ -5,29 +5,63 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <script src="/webui.js"></script>
         <title>Signer</title>
+        <style>
+        *, *:before, *:after { box-sizing: border-box; }
+        html, body, form { margin:0; padding:0; font-size:16px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; }
+        form { max-width:380px; padding:1rem; display:block; margin:0 auto; text-align:center; }
+        .picker, .error { padding:1rem 0; }
+        .hidden { display:none; }
+        button { min-width:80px; }
+        select { display:block; width:100%; margin-bottom:5px; }
+        input { display:block; width: 90px; text-align:center; margin: 0 auto; }
+        .buttons { display:flex; flex-direction:row; flex-wrap:nowrap; justify-content:space-between; align-items:stretch; align-content:stretch; }
+        </style>
     </head>
-<body>
-    <form onsubmit="return false" style="text-align:center;">
-        <select onclick="p()" id="c" style="display:block; width:90%; margin:1rem auto;"></select>
-        <input id="p" type="password" placeholder="0000" />
-        <button onclick="s(); return false">Sign</button>
-    </form>
-    <script>
-    function s() {
-        const c = parseInt(document.getElementById('c').value, 10);
-        const p = document.getElementById('p').value;
-        pin(c, p);
-    };
-    function r(certs) {
-        // var certs = JSON.parse(certs);
-        var crt = document.getElementById('c');
-        certs.map((c) => {
-            var e = document.createElement('option');
-            e.value = c.handle;
-            e.text = c.name;
-            crt.appendChild(e);
+    <body>
+        <form>
+            <div class="picker">
+                <select id="c"></select>
+                <input id="p" type="password" placeholder="0000" />
+            </div>
+            <div class="error hidden">No certificates</div>
+            <div class="buttons">
+                <button class="ok">OK</button>
+                <button class="cancel">Cancel</button>
+            </div>
+        </form>
+        <script>
+        window.$ = document.querySelector.bind(document);
+        Node.prototype.on = window.on = function(name, fn) { this.addEventListener(name, fn); };
+
+        $('form').on('submit', function (e) {
+            e.preventDefault();
         });
-    };
-    </script>
-</body>
+        $('.ok').on('click', function (e) {
+            e.preventDefault();
+            const c = parseInt(document.getElementById('c').value, 10);
+            const p = document.getElementById('p').value;
+            done(c, p);
+        });
+        $('.cancel').on('click', function (e) {
+            e.preventDefault();
+            done(0, "");
+        });
+        function certificates(certs) {
+            var crt = document.getElementById('c');
+            certs.map((c) => {
+                var e = document.createElement('option');
+                e.value = c.handle;
+                e.text = c.name;
+                crt.appendChild(e);
+            });
+            if (!certs.length) {
+                $('.picker').className = 'picker hidden';
+                $('.error').className = 'error';
+                $('.cancel').className = 'cancel hidden';
+            }
+        };
+        // certificates([]);
+        </script>
+    </body>
 </html>

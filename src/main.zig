@@ -1,5 +1,5 @@
 const std = @import("std");
-const os = @import("builtin").target.os;
+const builtin = @import("builtin");
 const pkcs11 = @import("pkcs11.zig");
 const Certificate = @import("Certificate.zig").Certificate;
 const webui = @import("webui");
@@ -24,7 +24,7 @@ fn signHash(allocator: std.mem.Allocator, hash: []const u8) ![]const u8 {
     defer arena.deinit();
     const arena_allocator = arena.allocator();
     // libs default locations per OS
-    const libs: []const []const u8 = comptime switch (os.tag) {
+    const libs: []const []const u8 = comptime switch (builtin.target.os.tag) {
         .macos => &.{
             "/Library/Frameworks/eToken.framework/Versions/A/libIDPrimePKCS11.dylib"
         },
@@ -68,28 +68,44 @@ fn signHash(allocator: std.mem.Allocator, hash: []const u8) ![]const u8 {
     c = 0;
     p = [_]u8{0} ** 8;
 
-    var window = webui.newWindow();
-    _ = try window.binding("pin", pin);
-    _ = try window.binding("ready", ready);
-    window.setSize(400, 120);
-    window.setCenter();
-    window.setResizable(false);
-    const html = @embedFile("index.html");
-    _ = try window.show(html);
-    var json = std.ArrayList(u8).init(allocator);
-    defer json.deinit();
-    try std.json.stringify(certs.items, .{}, json.writer());
-    try json.insertSlice(0, "r(");
-    try json.appendSlice(");");
-    window.run(try json.toOwnedSliceSentinel(0));
-    webui.wait();
+    if (!builtin.is_test) {
+        var window = webui.newWindow();
+        _ = try window.binding("done", done);
+        window.setSize(400, 120);
+        window.setCenter();
+        window.setResizable(false);
+        const html = @embedFile("index.html");
+        _ = try window.show(html);
+        var json = std.ArrayList(u8).init(allocator);
+        defer json.deinit();
+        try std.json.stringify(certs.items, .{}, json.writer());
+        try json.insertSlice(0, "certificates(");
+        try json.appendSlice(");");
+        window.run(try json.toOwnedSliceSentinel(0));
+        webui.wait();
+    } else {
+        c = 0;
+        var exe_dir = std.fs.cwd();
+        const file = try exe_dir.openFile("pin", .{});
+        defer file.close();
+        const tmp = try file.readToEndAlloc(arena_allocator, 8);
+        defer arena_allocator.free(tmp);
+        const trm = std.mem.trimRight(u8, tmp, "\r\n ");
+        @memcpy(p[0..trm.len], trm[0..]);
+    }
 
+    if (c >= certificates.items.len) {
+        return error.Cancel;
+    }
     // certificate is chosen and parsed
     const certificate = certificates.items[c];
 
     // proceed to signing
     var len = p.len;
     while (len > 0 and p[len - 1] == 0) : (len -= 1) {}
+    if (len == 0) {
+        return error.Cancel;
+    }
     const signature = try certificate.signDetached(allocator, hash, p[0..len]);
     std.debug.print("\nsignature\n{s}\n\n", .{ signature });
 
@@ -98,17 +114,11 @@ fn signHash(allocator: std.mem.Allocator, hash: []const u8) ![]const u8 {
 
     return signature;
 }
-fn ready(e: *webui.Event) void {
-    std.debug.print("asdf\n\n", .{});
-    e.getWindow().run("p();");
-}
-fn pin(e: *webui.Event) void {
-    std.debug.print("asdf\n\n", .{});
+fn done(e: *webui.Event) void {
     c = @as(u8, @intCast(e.getIntAt(0)));
     const tmp = e.getStringAt(1);
     const len = if (tmp.len < 8) tmp.len else 8;
     @memcpy(p[0..len], tmp[0..len]);
-    std.debug.print("{d} {any}\n\n", .{c, p});
     webui.exit();
 }
 test "sign" {
