@@ -59,15 +59,9 @@ fn signHash(allocator: std.mem.Allocator, hash: []const u8) ![]const u8 {
     var certs = std.ArrayList(struct { handle: u64, name: []const u8 }).init(arena_allocator);
     defer certs.deinit();
     for (0.., certificates.items) |i, certificate| {
-        const serial = try certificate.serial(arena_allocator, false);
-        const name = try certificate.name(arena_allocator);
-        defer {
-            arena_allocator.free(serial);
-            arena_allocator.free(name);
-        }
         try certs.append(.{
             .handle = i,
-            .name = name
+            .name = try certificate.name(arena_allocator)
         });
     }
 
@@ -76,7 +70,7 @@ fn signHash(allocator: std.mem.Allocator, hash: []const u8) ![]const u8 {
 
     var window = webui.newWindow();
     _ = try window.binding("pin", pin);
-    _ = try window.binding("reload", reload);
+    _ = try window.binding("ready", ready);
     window.setSize(400, 120);
     window.setCenter();
     window.setResizable(false);
@@ -85,26 +79,28 @@ fn signHash(allocator: std.mem.Allocator, hash: []const u8) ![]const u8 {
     var json = std.ArrayList(u8).init(allocator);
     defer json.deinit();
     try std.json.stringify(certs.items, .{}, json.writer());
+    try json.insertSlice(0, "r(");
+    try json.appendSlice(");");
+    window.run(try json.toOwnedSliceSentinel(0));
     webui.wait();
 
     // certificate is chosen and parsed
-    // const certificate = certificates.items[c];
+    const certificate = certificates.items[c];
 
     // proceed to signing
     var len = p.len;
     while (len > 0 and p[len - 1] == 0) : (len -= 1) {}
-    // const signature = try certificate.signDetached(allocator, hash, p[0..len]);
-    // std.debug.print("signature {s}\n", .{ signature });
+    const signature = try certificate.signDetached(allocator, hash, p[0..len]);
+    std.debug.print("\nsignature\n{s}\n\n", .{ signature });
 
     c = 0;
     p = [_]u8{0} ** 8;
 
-    // return signature;
-    return hash;
+    return signature;
 }
-fn reload(e: *webui.Event) void {
+fn ready(e: *webui.Event) void {
     std.debug.print("asdf\n\n", .{});
-    e.getWindow().run("alert('Fast!');");
+    e.getWindow().run("p();");
 }
 fn pin(e: *webui.Event) void {
     std.debug.print("asdf\n\n", .{});

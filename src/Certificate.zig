@@ -172,6 +172,7 @@ pub const Certificate = struct {
         }
         var names = std.ArrayList([]const u8).init(allocator);
         defer names.deinit();
+        try names.append(try self.serial(allocator, false));
         for (nodes[0].child(0).child(5).children()) |node| {
             try names.append(node.child(0).child(1).val);
         }
