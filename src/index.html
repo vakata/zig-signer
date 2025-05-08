@@ -1,0 +1,39 @@
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <script src="/webui.js"></script>
+        <title>Signer</title>
+    </head>
+<body>
+    <form onsubmit="return false" style="text-align:center;">
+        <select onclick="p()" id="c" style="display:block; width:90%; margin:1rem auto;"></select>
+        <input id="p" type="text" placeholder="0000" />
+        <button onclick="s(); return false">Sign</button>
+        <button onclick="p(); return false">get</button>
+    </form>
+    <script>
+    function s() {
+        const c = parseInt(document.getElementById('c').value, 10);
+        const p = document.getElementById('p').value;
+        pin(c, p);
+    }
+    function p() {
+        var crt = document.getElementById('c');
+            var e = document.createElement('option');
+            e.value = "as";
+            e.text = "asdfasdfa";
+            crt.appendChild(e);
+        // var certs = JSON.parse(certs);
+        return;
+        // var certs = [{handle:0, name:"asdf"}];
+        // var crt = document.getElementById('c');
+        // certs.map((c) => {
+        //     var e = document.createElement('option');
+        //     e.value = c.handle;
+        //     e.text = c.name;
+        //     crt.appendChild(e);
+        // });
+    }
+    </script>
+</body>
+</html>
