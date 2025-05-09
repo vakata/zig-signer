@@ -28,6 +28,8 @@ fn signHash(allocator: std.mem.Allocator, hash: []const u8) ![]const u8 {
         .macos => &.{
             "/Library/Frameworks/eToken.framework/Versions/A/libIDPrimePKCS11.dylib"
         },
+        .windows => &.{},
+        .linux => &.{},
         else => .{}
     };
 
@@ -71,7 +73,7 @@ fn signHash(allocator: std.mem.Allocator, hash: []const u8) ![]const u8 {
     if (!builtin.is_test) {
         var window = webui.newWindow();
         _ = try window.binding("done", done);
-        window.setSize(400, 120);
+        window.setSize(400, 160);
         window.setCenter();
         window.setResizable(false);
         const html = @embedFile("index.html");
