@@ -119,9 +119,9 @@ pub const Val = union(enum) {
 
 pub const Node = struct {
     allocator: std.mem.Allocator,
-    tag: Tag,
-    val: []const u8, // always encoded
     nodes: std.ArrayList(*Node),
+    val: []const u8, // always encoded
+    tag: Tag,
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -165,7 +165,7 @@ pub const Node = struct {
         self.allocator.destroy(self);
     }
     pub fn value(self: *Node) !Val {
-        return try decodeValue(self.tag, self.val);
+        return try decodeValue(self.allocator, self.tag, self.val);
     }
     pub fn children(self: *Node) []*Node {
         return self.nodes.items;
@@ -174,6 +174,7 @@ pub const Node = struct {
         return self.children()[idx];
     }
 };
+
 pub fn decode(allocator: std.mem.Allocator, buf: []const u8) ![]*Node {
     var stream = std.io.fixedBufferStream(buf);
     var reader = stream.reader();
@@ -239,11 +240,30 @@ pub fn encode(allocator: std.mem.Allocator, node: *Node) ![]const u8 {
     defer buf.deinit();
     var len: u64 = 0;
     if (node.tag.isConstructed() and node.nodes.items.len > 0) {
+        var children = std.ArrayList([]const u8).init(allocator);
+        defer {
+            for (children.items) |c| {
+                allocator.free(c);
+            }
+            children.deinit();
+        }
         for (node.nodes.items) |n| {
             const val = try encode(allocator, n);
-            defer allocator.free(val);
-            try buf.appendSlice(val);
-            len = len + val.len;
+            try children.append(val);
+        }
+        if (node.tag == .set) {
+            std.mem.sort(
+                []const u8,
+                children.items,
+                {},
+                struct {
+                    pub fn cmp(_: void, a: []const u8, b: []const u8) bool { return std.mem.lessThan(u8, a, b); }
+                }.cmp
+            );
+        }
+        for (children.items) |c| {
+            try buf.appendSlice(c);
+            len = len + c.len;
         }
     } else {
         try buf.appendSlice(node.val);
@@ -321,7 +341,7 @@ pub fn decodeValue(allocator: std.mem.Allocator, tag: Tag, val: []const u8) !Val
         .null => return .{ .null = {} },
         .boolean => return .{ .bool = std.mem.eql(u8, val, "\xFF") },
         .float => return error.NotSupported,
-        else => return val[0..],
+        else => return .{ .string = val[0..] },
     }
 }
 pub fn encodeValue(allocator: std.mem.Allocator, tag: Tag, val: Val) ![]const u8 {
@@ -403,3 +423,4 @@ pub fn encodeValue(allocator: std.mem.Allocator, tag: Tag, val: Val) ![]const u8
         },
     }
 }
+

@@ -12,5 +12,5 @@ A playground to explore zig. The goal of this project is to start a local web se
  - pkcs11 is ready (more common lib locations need to be added)
  - asn1 encoder/decoder works for the purposes of this project
  - pkcs7 generation is ready
- - webui is in progress - it is integrated but the picker is not yet functional
- - web server is not yet started
+ - webui is functional
+ - web server is not yet available
