@@ -36,14 +36,15 @@
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
     .dependencies = .{
+        .p11 = .{ .url = "https://github.com/p11-glue/p11-kit/releases/download/0.25.5/p11-kit-0.25.5.tar.xz", .hash = "N-V-__8AAN7ulQC1NAe0EN2PTMje6uE6dYpydqoBUHNuVGp_" },
         .zig_webui = .{
-            .url = "https://github.com/webui-dev/zig-webui/archive/main.tar.gz",
+            .url = "https://github.com/webui-dev/zig-webui/archive/602f149fc757db8257848a5ea816cc3a0ce6bed6.tar.gz",
             .hash = "zig_webui-2.5.0-beta.4-M4z7zfBUAQBOTfX7VaK2Rj52SuqrD7PRPMS5yXV3wn-l",
         },
-        .p11 = .{
-            .url = "https://github.com/p11-glue/p11-kit/releases/download/0.25.5/p11-kit-0.25.5.tar.xz",
-            .hash = "N-V-__8AAN7ulQC1NAe0EN2PTMje6uE6dYpydqoBUHNuVGp_"
-        }
+        .zap = .{
+            .url = "git+https://github.com/zigzap/zap?ref=v0.10.1#8d187310c7ee4f86faa7ef0ecdac0bf747216dea",
+            .hash = "zap-0.9.1-GoeB84M8JACjZKDNq2LA5hB24Z-ZrZ_HUKRXd8qxL2JW",
+        },
     },
     .paths = .{
         "build.zig",
