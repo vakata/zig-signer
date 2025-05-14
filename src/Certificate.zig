@@ -180,3 +180,6 @@ pub const Certificate = struct {
     }
 };
 
+test {
+    std.testing.refAllDecls(@This());
+}

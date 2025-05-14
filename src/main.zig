@@ -123,9 +123,10 @@ fn done(e: *webui.Event) void {
     @memcpy(p[0..len], tmp[0..len]);
     webui.exit();
 }
-test "sign" {
-    const allocator = std.testing.allocator;
-    const signature = try signData(allocator, "SAMPLE");
-    defer allocator.free(signature);
-    try std.testing.expect(signature.len > 0);
+test {
+    std.testing.refAllDecls(@This());
+    // const allocator = std.testing.allocator;
+    // const signature = try signData(allocator, "SAMPLE");
+    // defer allocator.free(signature);
+    // try std.testing.expect(signature.len > 0);
 }

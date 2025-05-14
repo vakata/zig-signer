@@ -235,6 +235,7 @@ pub fn decode(allocator: std.mem.Allocator, buf: []const u8) ![]*Node {
     }
     return nodes.toOwnedSlice();
 }
+
 pub fn encode(allocator: std.mem.Allocator, node: *Node) ![]const u8 {
     var buf = std.ArrayList(u8).init(allocator);
     defer buf.deinit();
@@ -275,6 +276,7 @@ pub fn encode(allocator: std.mem.Allocator, node: *Node) ![]const u8 {
     try buf.insert(0, @intFromEnum(node.tag));
     return try buf.toOwnedSlice();
 }
+
 pub fn encodeLength(allocator: std.mem.Allocator, len: u64) ![]u8 {
     if (len <= 127) {
         var buf = try allocator.alloc(u8, 1);
@@ -295,6 +297,7 @@ pub fn encodeLength(allocator: std.mem.Allocator, len: u64) ![]u8 {
     }
     return buf;
 }
+
 pub fn decodeValue(allocator: std.mem.Allocator, tag: Tag, val: []const u8) !Val {
     switch (tag) {
         .object_identifier => {
@@ -325,11 +328,11 @@ pub fn decodeValue(allocator: std.mem.Allocator, tag: Tag, val: []const u8) !Val
             for (list.items[1..]) |item| {
                 try writer.print(".{}", .{item});
             }
-            return .{ .string = allocator.dupe(u8, stream.getWritten()) };
+            return .{ .string = try allocator.dupe(u8, stream.getWritten()) };
         },
         .integer => {
             var start: usize = 0;
-            if (val[0] == 0x00 and val.length > 1 and (val[1] & 0x80) == 0) {
+            if (val[0] == 0x00 and val.len > 1 and (val[1] & 0x80) == 0) {
                 start = 1;
             }
             var value: u64 = 0;
@@ -340,10 +343,11 @@ pub fn decodeValue(allocator: std.mem.Allocator, tag: Tag, val: []const u8) !Val
         },
         .null => return .{ .null = {} },
         .boolean => return .{ .bool = std.mem.eql(u8, val, "\xFF") },
-        .float => return error.NotSupported,
+        .real_type => return error.NotSupported,
         else => return .{ .string = val[0..] },
     }
 }
+
 pub fn encodeValue(allocator: std.mem.Allocator, tag: Tag, val: Val) ![]const u8 {
     switch (tag) {
         .boolean => {
@@ -424,3 +428,12 @@ pub fn encodeValue(allocator: std.mem.Allocator, tag: Tag, val: Val) ![]const u8
     }
 }
 
+test "integer value encode / decode" {
+    const allocator = std.testing.allocator;
+    const inp: Val = .{ .int = 64 };
+    const der = try encodeValue(allocator, .integer, inp);
+    defer allocator.free(der);
+    const out = try decodeValue(allocator, .integer, der);
+    defer allocator.free(out);
+    try std.testing.expectEqual(inp, out);
+}
