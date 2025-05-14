@@ -179,14 +179,12 @@ pub const Lib = struct {
 
         return buf[0..];
     }
-    pub fn signHashWithCertificate(self: *Lib, allocator: std.mem.Allocator, cert: u64, pin: []const u8, hash: []const u8) ![]const u8 {
-        const sess = try self.certSess(cert);
-        const slot = try self.sessSlot(sess);
-        try self.login(sess, pin);
-        const priv = try self.getPrivateKey(cert);
-        return self.signHash(allocator, slot, sess, priv, hash);
-    }
-    pub fn signHash(self: *Lib, allocator: std.mem.Allocator, slot: c_ulong, session: c_ulong, privkey: u64, hash: []const u8) ![]const u8 {
+    pub fn sign(self: *Lib, allocator: std.mem.Allocator, cert: u64, pin: []const u8, data: []const u8) ![]const u8 {
+        const session = try self.certSess(cert);
+        const slot = try self.sessSlot(session);
+        try self.login(session, pin);
+        const privkey = try self.getPrivateKey(cert);
+
         var mech_count: C.CK_ULONG = undefined;
         try self.err(self.sym.C_GetMechanismList.?(slot, null, &mech_count));
         const mech_list = try allocator.alloc(c_ulong, mech_count);
@@ -225,27 +223,26 @@ pub const Lib = struct {
             return error.GeneralFailure;
         }
 
-        const prefix = "\x30\x31\x30\x0D\x06\x09\x60\x86\x48\x01\x65\x03\x04\x02\x01\x05\x00\x04\x20";
-        var hash_len: u64 = hash.len;
+        var tosign = std.ArrayList(u8).init(allocator);
+        defer tosign.deinit();
         if (selected == C.CKM_RSA_PKCS) {
-            hash_len += prefix.len;
-        }
-        const norm_hash = try allocator.alloc(u8, hash_len);
-        defer allocator.free(norm_hash);
-        if (selected == C.CKM_RSA_PKCS) {
-            @memcpy(norm_hash[0..prefix.len], prefix);
-            @memcpy(norm_hash[prefix.len..], hash);
+            const tmp = try asn1.Node.fromChildren(allocator, .sequence, &[_]*asn1.Node{
+                try asn1.Node.fromValue(allocator, .object_identifier, .{ .string = "2.16.840.1.101.3.4.2.1" }),
+                try asn1.Node.fromValue(allocator, .octet_string, .{ .string = data }),
+            });
+            defer tmp.deinit();
+            try tosign.appendSlice(try asn1.encode(allocator, tmp));
         } else {
-            @memcpy(norm_hash, hash);
+            try tosign.appendSlice(data);
         }
 
         const mechanism = C.CK_MECHANISM{ .mechanism = selected, .pParameter = null, .ulParameterLen = 0 };
         try self.err(self.sym.C_SignInit.?(session, @constCast(&mechanism), privkey));
         var siglen: c_ulong = 0;
-        try self.err(self.sym.C_Sign.?(session, norm_hash.ptr, norm_hash.len, null, &siglen));
+        try self.err(self.sym.C_Sign.?(session, tosign.items.ptr, tosign.items.len, null, &siglen));
         const sig = try allocator.alloc(u8, siglen);
         errdefer allocator.free(sig);
-        try self.err(self.sym.C_Sign.?(session, norm_hash.ptr, norm_hash.len, sig.ptr, &siglen));
+        try self.err(self.sym.C_Sign.?(session, tosign.items.ptr, tosign.items.len, sig.ptr, &siglen));
         if (selected == C.CKM_RSA_PKCS) {
             return sig;
         }

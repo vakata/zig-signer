@@ -25,6 +25,10 @@ pub const Certificate = struct {
         self.allocator.destroy(self);
     }
  
+    pub fn signRaw(self: *Certificate, allocator: std.mem.Allocator, hash: []const u8, pin: []const u8) ![]const u8 {
+        return try self.lib.sign(allocator, self.crt, pin, &hash);
+    }
+
     pub fn signDetached(self: *Certificate, allocator: std.mem.Allocator, hash: []const u8, pin: []const u8) ![]const u8 {
         var arena = std.heap.ArenaAllocator.init(allocator);
         defer arena.deinit();
@@ -111,7 +115,7 @@ pub const Certificate = struct {
         signed_cpy[0] = 49;
         var signed_hash: [32]u8 = undefined;
         std.crypto.hash.sha2.Sha256.hash(signed_cpy[0..], &signed_hash, .{});
-        const signature = try self.lib.signHashWithCertificate(arena_allocator, self.crt, pin, &signed_hash);
+        const signature = try self.lib.sign(arena_allocator, self.crt, pin, &signed_hash);
         defer arena_allocator.free(signature);
         
         try p7s.child(1).child(0).child(4).child(0).nodes.append(

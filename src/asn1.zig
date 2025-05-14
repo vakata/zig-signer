@@ -320,9 +320,8 @@ pub fn decodeValue(allocator: std.mem.Allocator, tag: Tag, val: []const u8) !Val
                 }
                 try list.append(v);
             }
-
-            // Convert to string like "1.2.840.113549"
-            var stream = std.io.fixedBufferStream(&[_]u8{0} ** 128);
+            var buffer: [128]u8 = undefined;
+            var stream = std.io.fixedBufferStream(&buffer);
             var writer = stream.writer();
             try writer.print("{}", .{list.items[0]});
             for (list.items[1..]) |item| {
@@ -344,7 +343,7 @@ pub fn decodeValue(allocator: std.mem.Allocator, tag: Tag, val: []const u8) !Val
         .null => return .{ .null = {} },
         .boolean => return .{ .bool = std.mem.eql(u8, val, "\xFF") },
         .real_type => return error.NotSupported,
-        else => return .{ .string = val[0..] },
+        else => return .{ .string = try allocator.dupe(u8, val) },
     }
 }
 
@@ -433,7 +432,7 @@ test "integer value encode / decode" {
     const inp: Val = .{ .int = 64 };
     const der = try encodeValue(allocator, .integer, inp);
     defer allocator.free(der);
-    const out = try decodeValue(allocator, .integer, der);
-    defer allocator.free(out);
-    try std.testing.expectEqual(inp, out);
+    const out = try decodeValue(allocator, .integer, der[0..]);
+    defer if (out == .string) allocator.free(out.string);
+    try std.testing.expectEqualDeep(inp, out);
 }

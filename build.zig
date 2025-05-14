@@ -28,13 +28,6 @@ pub fn build(b: *std.Build) void {
     });
     exe.root_module.addImport("webui", zig_webui.module("webui"));
 
-    const zap = b.dependency("zap", .{
-        .target = target,
-        .optimize = optimize,
-        .openssl = false, // set to true to enable TLS support
-    });
-    exe.root_module.addImport("zap", zap.module("zap"));
-
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
