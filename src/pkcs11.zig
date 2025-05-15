@@ -227,7 +227,10 @@ pub const Lib = struct {
         defer tosign.deinit();
         if (selected == C.CKM_RSA_PKCS) {
             const tmp = try asn1.Node.fromChildren(allocator, .sequence, &[_]*asn1.Node{
-                try asn1.Node.fromValue(allocator, .object_identifier, .{ .string = "2.16.840.1.101.3.4.2.1" }),
+                try asn1.Node.fromChildren(allocator, .sequence, &[_]*asn1.Node{
+                    try asn1.Node.fromValue(allocator, .object_identifier, .{ .string = "2.16.840.1.101.3.4.2.1" }),
+                    try asn1.Node.fromValue(allocator, .null, .{ .null = {} }),
+                }),
                 try asn1.Node.fromValue(allocator, .octet_string, .{ .string = data }),
             });
             defer tmp.deinit();

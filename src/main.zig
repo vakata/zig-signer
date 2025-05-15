@@ -125,8 +125,8 @@ fn done(e: *webui.Event) void {
 }
 test {
     std.testing.refAllDecls(@This());
-    // const allocator = std.testing.allocator;
-    // const signature = try signData(allocator, "SAMPLE");
-    // defer allocator.free(signature);
-    // try std.testing.expect(signature.len > 0);
+    const allocator = std.testing.allocator;
+    const signature = try signData(allocator, "SAMPLE");
+    defer allocator.free(signature);
+    try std.testing.expect(signature.len > 0);
 }
