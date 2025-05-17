@@ -122,25 +122,22 @@ pub const Node = struct {
     nodes: std.ArrayList(*Node),
     val: []const u8, // always encoded
     tag: Tag,
+    own: bool,
 
     pub fn init(
         allocator: std.mem.Allocator,
         tag: Tag,
         val: []const u8,
-        nodes: ?[]const *Node
+        nodes: ?std.ArrayList(*Node)
     ) !*Node {
         const self = try allocator.create(Node);
         self.* = .{
             .allocator = allocator,
             .tag = tag,
             .val = val,
-            .nodes = std.ArrayList(*Node).init(allocator),
+            .nodes = nodes orelse std.ArrayList(*Node).init(allocator),
+            .own = false
         };
-        if (nodes) |ns| {
-            for (ns) |node| {
-                try self.nodes.append(node);
-            }
-        }
         return self;
     }
     pub fn fromChildren(
@@ -148,16 +145,23 @@ pub const Node = struct {
         tag: Tag,
         nodes: []const *Node
     ) !*Node {
-        return try Node.init(allocator, tag, "", nodes);
+        var nodelist = std.ArrayList(*Node).init(allocator);
+        try nodelist.appendSlice(nodes);
+        return try Node.init(allocator, tag, "", nodelist);
     }
     pub fn fromValue(
         allocator: std.mem.Allocator,
         tag: Tag,
         val: Val,
     ) !*Node {
-        return try Node.init(allocator, tag, try encodeValue(allocator, tag, val), null);
+        var node = try Node.init(allocator, tag, try encodeValue(allocator, tag, val), null);
+        node.own = true;
+        return node;
     }
     pub fn deinit(self: *Node) void {
+        if (self.own) {
+            self.allocator.free(self.val);
+        }
         for (self.nodes.items) |node| {
             node.deinit();
         }
@@ -175,7 +179,7 @@ pub const Node = struct {
     }
 };
 
-pub fn decode(allocator: std.mem.Allocator, buf: []const u8) ![]*Node {
+pub fn decode(allocator: std.mem.Allocator, buf: []const u8) !std.ArrayList(*Node) {
     var stream = std.io.fixedBufferStream(buf);
     var reader = stream.reader();
     var nodes = std.ArrayList(*Node).init(allocator);
@@ -228,12 +232,12 @@ pub fn decode(allocator: std.mem.Allocator, buf: []const u8) ![]*Node {
         }
         const node = try Node.init(allocator, @enumFromInt(tag), buf[beg..end], null);
         if (node.tag.isConstructed()) {
-            node.nodes.items = try decode(allocator, buf[beg..end]);
+            node.nodes = try decode(allocator, buf[beg..end]);
         }
         try nodes.append(node);
         stream.pos = beg + len;
     }
-    return nodes.toOwnedSlice();
+    return nodes;
 }
 
 pub fn encode(allocator: std.mem.Allocator, node: *Node) ![]const u8 {
@@ -268,7 +272,7 @@ pub fn encode(allocator: std.mem.Allocator, node: *Node) ![]const u8 {
         }
     } else {
         try buf.appendSlice(node.val);
-        len = len + node.val.len;
+        len = node.val.len;
     }
     const clen = try encodeLength(allocator, len);
     defer allocator.free(clen);
@@ -353,9 +357,9 @@ pub fn encodeValue(allocator: std.mem.Allocator, tag: Tag, val: Val) ![]const u8
             switch (val) {
                 .bool => |b| {
                     if (b) {
-                        return "\xFF";
+                        return allocator.dupe(u8, "\xFF");
                     } else {
-                        return "\x00";
+                        return allocator.dupe(u8, "\x00");
                     }
                 },
                 else => return error.InvalidType,
@@ -389,7 +393,7 @@ pub fn encodeValue(allocator: std.mem.Allocator, tag: Tag, val: Val) ![]const u8
                                 c >>= 7;
                             }
                         }
-                        try enc.appendSlice(try tmp.toOwnedSlice());
+                        try enc.appendSlice(tmp.items);
                     }
                     return try enc.toOwnedSlice();
                 },
@@ -413,6 +417,7 @@ pub fn encodeValue(allocator: std.mem.Allocator, tag: Tag, val: Val) ![]const u8
                     try enc.appendSlice(tmp[i..]);
                     return enc.toOwnedSlice();
                 },
+                .string => |s| return allocator.dupe(u8, s),
                 else => return error.InvalidType,
             }
         },
@@ -420,7 +425,7 @@ pub fn encodeValue(allocator: std.mem.Allocator, tag: Tag, val: Val) ![]const u8
         .real_type => return error.NotSupported,
         else =>  {
             switch (val) {
-                .string => |s| return s,
+                .string => |s| return allocator.dupe(u8, s),
                 else => return error.InvalidType,
             }
         },

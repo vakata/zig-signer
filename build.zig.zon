@@ -35,14 +35,14 @@
     // `zig build --fetch` can be used to fetch all dependencies of a package, recursively.
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
-    .dependencies = .{ 
+    .dependencies = .{
         .p11 = .{
-            .url = "https://github.com/p11-glue/p11-kit/releases/download/0.25.5/p11-kit-0.25.5.tar.xz",
-            .hash = "N-V-__8AAN7ulQC1NAe0EN2PTMje6uE6dYpydqoBUHNuVGp_"
+            .url = "https://github.com/p11-glue/p11-kit/releases/download/0.25.5/p11-kit-0.25.5.tar.xz", 
+            .hash = "N-V-__8AAN7ulQC1NAe0EN2PTMje6uE6dYpydqoBUHNuVGp_" 
         },
         .zig_webui = .{
-            .url = "https://github.com/webui-dev/zig-webui/archive/b60b6f9.tar.gz",
-            .hash = "zig_webui-2.5.0-beta.4-M4z7zRo2AQA22izSJIQNpHGVQc23bPsoTF7jdZgooK1d",
+            .url = "https://github.com/webui-dev/zig-webui/archive/a58faf0fb206725ee443d1af6f6b1ebc88187e6a.tar.gz",
+            .hash = "zig_webui-2.5.0-beta.4-M4z7zfBUAQDEN_kHBLokzsJznoVQy0_7idTic9oiYM04",
         },
     },
     .paths = .{

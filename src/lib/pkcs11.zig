@@ -1,6 +1,4 @@
 const std = @import("std");
-const asn1 = @import("asn1.zig");
-const Certificate = @import("Certificate.zig").Certificate;
 
 pub const C = @cImport({
     @cInclude("pkcs11.h");
@@ -112,19 +110,27 @@ pub const Lib = struct {
         try self.sessions.append(.{ .slot = slot_id, .sess = handle });
         return handle;
     }
-    pub fn findCertificates(self: *Lib, session: c_ulong) !void {
-        const template = [_]C.CK_ATTRIBUTE{
-            C.CK_ATTRIBUTE{ .type = C.CKA_CLASS, .pValue = @constCast(&C.CKO_CERTIFICATE), .ulValueLen = @sizeOf(u64) },
-        };
-        try self.err(self.sym.C_FindObjectsInit.?(session, @constCast(&template), 1));
+    pub fn findCertificates(self: *Lib) !void {
+        // collect slots
+        const slots = self.getSlots(self.allocator, false) catch { return; };
+        defer self.allocator.free(slots);
+        
+        // open a session for each slot and collect certicates
+        for (slots) |slot| {
+            const session = self.openSession(slot) catch { continue; };
+            const template = [_]C.CK_ATTRIBUTE{
+                C.CK_ATTRIBUTE{ .type = C.CKA_CLASS, .pValue = @constCast(&C.CKO_CERTIFICATE), .ulValueLen = @sizeOf(u64) },
+            };
+            try self.err(self.sym.C_FindObjectsInit.?(session, @constCast(&template), 1));
 
-        defer _ = self.sym.C_FindObjectsFinal.?(session);
-        while (true) {
-            var obj: u64 = 0;
-            var count: C.CK_ULONG = 0;
-            const rv = self.sym.C_FindObjects.?(session, &obj, 1, &count);
-            if (rv != C.CKR_OK or count == 0) break;
-            try self.certificates.append(.{ .cert = obj, .sess = session });
+            defer _ = self.sym.C_FindObjectsFinal.?(session);
+            while (true) {
+                var obj: u64 = 0;
+                var count: C.CK_ULONG = 0;
+                const rv = self.sym.C_FindObjects.?(session, &obj, 1, &count);
+                if (rv != C.CKR_OK or count == 0) break;
+                try self.certificates.append(.{ .cert = obj, .sess = session });
+            }
         }
     }
     pub fn login(self: *Lib, session: c_ulong, pin: []const u8) !void {
@@ -162,9 +168,8 @@ pub const Lib = struct {
         return object;
     }
 
-    pub fn getCertificate(self: *Lib, allocator: std.mem.Allocator, cert: u64) ![]u8 {
+    pub fn getCertificate(self: *Lib, allocator: std.mem.Allocator, cert: u64) ![]const u8 {
         const session = try self.certSess(cert);
-
         const attr_type = C.CKA_VALUE;
         var attr = C.CK_ATTRIBUTE{
             .type = attr_type,
@@ -176,7 +181,6 @@ pub const Lib = struct {
         errdefer allocator.free(buf);
         attr.pValue = buf.ptr;
         try self.err(self.sym.C_GetAttributeValue.?(session, cert, &attr, 1));
-
         return buf[0..];
     }
     pub fn sign(self: *Lib, allocator: std.mem.Allocator, cert: u64, pin: []const u8, data: []const u8) ![]const u8 {
@@ -223,56 +227,14 @@ pub const Lib = struct {
             return error.GeneralFailure;
         }
 
-        var tosign = std.ArrayList(u8).init(allocator);
-        defer tosign.deinit();
-        if (selected == C.CKM_RSA_PKCS) {
-            const tmp = try asn1.Node.fromChildren(allocator, .sequence, &[_]*asn1.Node{
-                try asn1.Node.fromChildren(allocator, .sequence, &[_]*asn1.Node{
-                    try asn1.Node.fromValue(allocator, .object_identifier, .{ .string = "2.16.840.1.101.3.4.2.1" }),
-                    try asn1.Node.fromValue(allocator, .null, .{ .null = {} }),
-                }),
-                try asn1.Node.fromValue(allocator, .octet_string, .{ .string = data }),
-            });
-            defer tmp.deinit();
-            try tosign.appendSlice(try asn1.encode(allocator, tmp));
-        } else {
-            try tosign.appendSlice(data);
-        }
-
         const mechanism = C.CK_MECHANISM{ .mechanism = selected, .pParameter = null, .ulParameterLen = 0 };
         try self.err(self.sym.C_SignInit.?(session, @constCast(&mechanism), privkey));
         var siglen: c_ulong = 0;
-        try self.err(self.sym.C_Sign.?(session, tosign.items.ptr, tosign.items.len, null, &siglen));
+        try self.err(self.sym.C_Sign.?(session, @constCast(data.ptr), data.len, null, &siglen));
         const sig = try allocator.alloc(u8, siglen);
         errdefer allocator.free(sig);
-        try self.err(self.sym.C_Sign.?(session, tosign.items.ptr, tosign.items.len, sig.ptr, &siglen));
-        if (selected == C.CKM_RSA_PKCS) {
-            return sig;
-        }
-        const rs = sig[0..32];
-        const ss = sig[32..];
-        const sigseq = try asn1.Node.fromChildren(allocator, .sequence, &[_]*asn1.Node{
-            try asn1.Node.init(allocator, .integer, rs, null),
-            try asn1.Node.init(allocator, .integer, ss, null),
-        });
-        defer sigseq.deinit();
-        return try asn1.encode(allocator, sigseq);
-    }
-    pub fn getCertificates(self: *Lib, allocator: std.mem.Allocator, certificates: *std.ArrayList(*Certificate)) void {
-        // collect slots
-        const slots = self.getSlots(self.allocator, false) catch { return; };
-        defer self.allocator.free(slots);
-        
-        // open a session for each slot and collect certicates
-        for (slots) |slot| {
-            const session = self.openSession(slot) catch { continue; };
-            self.findCertificates(session) catch { continue; };
-            for (self.certificates.items[0..]) |entry| {
-                if (Certificate.init(allocator, self, entry.cert) catch null) |certificate| {
-                    certificates.append(certificate) catch {};
-                }
-            }
-        }
+        try self.err(self.sym.C_Sign.?(session, @constCast(data.ptr), data.len, sig.ptr, &siglen));
+        return sig;
     }
 };
 
