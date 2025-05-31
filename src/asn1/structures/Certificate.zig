@@ -58,7 +58,3 @@ pub const Certificate = struct {
         return cpy;
     }
 };
-
-test {
-    std.testing.refAllDecls(@This());
-}

@@ -14,6 +14,7 @@ pub const Tag = enum(u8) {
         private     = 0b11000000,
     };
 
+    _none = 0, // special value for this parser
     boolean = 1,
     integer,
     bit_string,
@@ -122,8 +123,10 @@ pub const Node = struct {
     nodes: std.ArrayList(*Node),
     val: []const u8, // always encoded
     tag: Tag,
+    imp: Tag,
     own: bool,
 
+    // init is used mainly when decoding - the val property is not owned and will not be freed
     pub fn init(
         allocator: std.mem.Allocator,
         tag: Tag,
@@ -136,19 +139,22 @@ pub const Node = struct {
             .tag = tag,
             .val = val,
             .nodes = nodes orelse std.ArrayList(*Node).init(allocator),
+            .imp = ._none,
             .own = false
         };
         return self;
     }
+    // used when encoding
     pub fn fromChildren(
         allocator: std.mem.Allocator,
         tag: Tag,
         nodes: []const *Node
     ) !*Node {
-        var nodelist = std.ArrayList(*Node).init(allocator);
-        try nodelist.appendSlice(nodes);
-        return try Node.init(allocator, tag, "", nodelist);
+        var node_list = std.ArrayList(*Node).init(allocator);
+        try node_list.appendSlice(nodes);
+        return try Node.init(allocator, tag, "", node_list);
     }
+    // used when encoding - the .val property is duplicated as needed and will be freed
     pub fn fromValue(
         allocator: std.mem.Allocator,
         tag: Tag,
@@ -156,6 +162,34 @@ pub const Node = struct {
     ) !*Node {
         var node = try Node.init(allocator, tag, try encodeValue(allocator, tag, val), null);
         node.own = true;
+        return node;
+    }
+    pub fn implicitFromChildren(
+        allocator: std.mem.Allocator,
+        tag: Tag,
+        imp: Tag,
+        nodes: []const *Node
+    ) !*Node {
+        const new_tag = @intFromEnum(tag) | @intFromEnum(Tag.Type.constructed);
+        var node_list = std.ArrayList(*Node).init(allocator);
+        try node_list.appendSlice(nodes);
+        var node = try Node.init(allocator, @enumFromInt(new_tag), "", node_list);
+        node.imp = imp;
+        return node;
+    }
+    pub fn implicitFromValue(
+        allocator: std.mem.Allocator,
+        tag: Tag,
+        imp: Tag,
+        val: Val,
+    ) !*Node {
+        var new_tag = @intFromEnum(tag);
+        if (imp.isConstructed()) {
+            new_tag |= @intFromEnum(Tag.Type.constructed);
+        }
+        var node = try Node.init(allocator, @enumFromInt(new_tag), try encodeValue(allocator, imp, val), null);
+        node.own = true;
+        node.imp = imp;
         return node;
     }
     pub fn deinit(self: *Node) void {
@@ -230,6 +264,8 @@ pub fn decode(allocator: std.mem.Allocator, buf: []const u8) !std.ArrayList(*Nod
             beg = stream.pos;
             end = beg + len;
         }
+
+        // create node
         const node = try Node.init(allocator, @enumFromInt(tag), buf[beg..end], null);
         if (node.tag.isConstructed()) {
             node.nodes = try decode(allocator, buf[beg..end]);
@@ -256,7 +292,7 @@ pub fn encode(allocator: std.mem.Allocator, node: *Node) ![]const u8 {
             const val = try encode(allocator, n);
             try children.append(val);
         }
-        if (node.tag == .set) {
+        if (node.tag == .set or node.imp == .set) {
             std.mem.sort(
                 []const u8,
                 children.items,

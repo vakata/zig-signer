@@ -4,6 +4,7 @@ pub const C = @cImport({
     @cInclude("pkcs11.h");
 });
 
+// TODO: remove those in favour of a single struct and group c functions at the top
 const SlotSess = struct { slot:c_ulong, sess:c_ulong };
 const CertSess = struct { cert:u64, sess:c_ulong };
 
@@ -186,6 +187,14 @@ pub const Lib = struct {
     pub fn sign(self: *Lib, allocator: std.mem.Allocator, cert: u64, pin: []const u8, data: []const u8) ![]const u8 {
         const session = try self.certSess(cert);
         const slot = try self.sessSlot(session);
+
+        const info: *C.CK_SESSION_INFO = try allocator.create(C.CK_SESSION_INFO);
+        defer allocator.destroy(info);
+        try self.err(self.sym.C_GetSessionInfo.?(session, info));
+        if (info.state > 2) {
+            self.err(self.sym.C_Logout.?(session)) catch {};
+        }
+
         try self.login(session, pin);
         const privkey = try self.getPrivateKey(cert);
 

@@ -28,6 +28,18 @@ pub fn build(b: *std.Build) void {
     });
     exe.root_module.addImport("webui", zig_webui.module("webui"));
 
+    const xml = b.dependency("xml", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    exe.root_module.addImport("xml", xml.module("xml"));
+
+    const httpz = b.dependency("httpz", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    exe.root_module.addImport("httpz", httpz.module("httpz"));
+
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);

@@ -2,7 +2,6 @@ const std = @import("std");
 const asn1 = @import("../asn1.zig");
 const Node = asn1.Node;
 const Certificate = @import("Certificate.zig").Certificate;
-const DateTime = @import("../helpers/DateTime.zig").DateTime;
 
 pub const P7S = struct {
     allocator: std.mem.Allocator,
@@ -14,14 +13,6 @@ pub const P7S = struct {
         defer allocator.free(iss);
         const ser = try cert.serial(allocator);
         defer allocator.free(ser);
-        const utc = DateTime.init(std.time.milliTimestamp());
-        const datetime = try allocator.alloc(u8, 13);
-        defer allocator.free(datetime);
-        _ = try std.fmt.bufPrint(
-            datetime,
-            "{d:0>2}{d:0>2}{d:0>2}{d:0>2}{d:0>2}{d:0>2}Z",
-            .{ utc.year % 100, utc.month, utc.day, utc.hour, utc.minute, utc.second }
-        );
         const p7s = try Node.fromChildren(allocator, .sequence, &[_]*Node{
             try Node.fromValue(allocator, .object_identifier, .{ .string = "1.2.840.113549.1.7.2" }),
             try Node.fromChildren(allocator, ._explicit0, &[_]*Node{ // signed data wrapper
@@ -48,20 +39,14 @@ pub const P7S = struct {
                                 try Node.fromValue(allocator, .object_identifier, .{ .string = "2.16.840.1.101.3.4.2.1" }),
                                 try Node.fromValue(allocator, .null, .{ .null = {} }),
                             }),
-                            try Node.fromChildren(allocator, ._explicit0, &[_]*Node{ // signed attributes
-                                try Node.fromChildren(allocator, .sequence, &[_]*Node{ // attribute 1 - content type
+                            try Node.implicitFromChildren(allocator, ._implicit0, .set, &[_]*Node{ // signed attributes
+                                try Node.fromChildren(allocator, .sequence, &[_]*Node{ // content type
                                     try Node.fromValue(allocator, .object_identifier, .{ .string = "1.2.840.113549.1.9.3" }),
                                     try Node.fromChildren(allocator, .set, &[_]*Node{
                                         try Node.fromValue(allocator, .object_identifier, .{ .string = "1.2.840.113549.1.7.1" }),
                                     }),
                                 }),
-                                try Node.fromChildren(allocator, .sequence, &[_]*Node{ // attribute 2 - signing time
-                                    try Node.fromValue(allocator, .object_identifier, .{ .string = "1.2.840.113549.1.9.5" }),
-                                    try Node.fromChildren(allocator, .set, &[_]*Node{
-                                        try Node.fromValue(allocator, .utc_time, .{ .string = datetime }),
-                                    }),
-                                }),
-                                try Node.fromChildren(allocator, .sequence, &[_]*Node{ // attribute 3 - hash
+                                try Node.fromChildren(allocator, .sequence, &[_]*Node{ // hash
                                     try Node.fromValue(allocator, .object_identifier, .{ .string = "1.2.840.113549.1.9.4" }),
                                     try Node.fromChildren(allocator, .set, &[_]*Node{
                                         try Node.fromValue (allocator, .octet_string, .{ .string = data }),
@@ -92,16 +77,29 @@ pub const P7S = struct {
         self.node.deinit();
         self.allocator.destroy(self);
     }
+    pub fn timestamp(self: *P7S, datetime: []const u8) !void {
+        try self.node.child(1).child(0).child(4).child(0).child(3).nodes.append(
+            try Node.fromChildren(self.allocator, .sequence, &[_]*Node{ // attribute 2 - signing time
+                try Node.fromValue(self.allocator, .object_identifier, .{ .string = "1.2.840.113549.1.9.5" }),
+                try Node.fromChildren(self.allocator, .set, &[_]*Node{
+                    try Node.fromValue(self.allocator, .utc_time, .{ .string = datetime }),
+                }),
+            })
+        );
+    }
     pub fn digest(self: *P7S, allocator: std.mem.Allocator) ![]const u8 {
-        const signed = try asn1.encode(self.allocator, self.node.child(1).child(0).child(4).child(0).child(3));
-        defer self.allocator.free(signed);
-        var signed_cpy = try self.allocator.alloc(u8, signed.len);
-        defer self.allocator.free(signed_cpy);
-        @memcpy(signed_cpy, signed);
-        signed_cpy[0] = 49;
-        var signed_hash = try allocator.alloc(u8, 32);
-        std.crypto.hash.sha2.Sha256.hash(signed_cpy[0..], signed_hash[0..32], .{});
-        return signed_hash;
+        // the signed attributes part of the structure needs to be digested and signed
+        const to_sign = try asn1.encode(self.allocator, self.node.child(1).child(0).child(4).child(0).child(3));
+        defer self.allocator.free(to_sign);
+        // signed attributes need to be copied in order to convert the implicit set of to a set
+        var to_sign_copy = try self.allocator.alloc(u8, to_sign.len);
+        defer self.allocator.free(to_sign_copy);
+        @memcpy(to_sign_copy, to_sign);
+        to_sign_copy[0] = 49;
+        // calculate and return the hash
+        var hash = try allocator.alloc(u8, 32);
+        std.crypto.hash.sha2.Sha256.hash(to_sign_copy[0..], hash[0..32], .{});
+        return hash;
     }
     pub fn sign(self: *P7S, signature: []const u8) !void {
         try self.node.child(1).child(0).child(4).child(0).nodes.append(
