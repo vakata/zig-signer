@@ -22,7 +22,7 @@ pub fn build(b: *std.Build) void {
 
     const zig_webui = b.dependency("zig_webui", .{
         .target = target,
-        .optimize = optimize,
+        .optimize = std.builtin.OptimizeMode.ReleaseFast,
         .enable_tls = false, // whether enable tls support
         .is_static = true, // whether static link
     });
@@ -30,13 +30,13 @@ pub fn build(b: *std.Build) void {
 
     const xml = b.dependency("xml", .{
         .target = target,
-        .optimize = optimize,
+        .optimize = std.builtin.OptimizeMode.ReleaseFast,
     });
     exe.root_module.addImport("xml", xml.module("xml"));
 
     const httpz = b.dependency("httpz", .{
         .target = target,
-        .optimize = optimize,
+        .optimize = std.builtin.OptimizeMode.ReleaseFast,
     });
     exe.root_module.addImport("httpz", httpz.module("httpz"));
 
