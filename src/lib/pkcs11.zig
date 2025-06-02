@@ -16,12 +16,14 @@ pub const Lib = struct {
     certificates: std.ArrayList(CertSess),
 
     pub fn init(allocator: std.mem.Allocator, path: []const u8) !*Lib {
+        std.debug.print(" ? init starting ... {s}\n", .{path});
         const self = try allocator.create(Lib);
         var lib = try std.DynLib.open(path);
         var sym: *C.CK_FUNCTION_LIST = undefined;
         const getFunctionList = lib.lookup(C.CK_C_GetFunctionList, "C_GetFunctionList").?.?;
         const rv = getFunctionList(@ptrCast(&sym));
         if (rv != C.CKR_OK) {
+            std.debug.print(" ? init failed: {s}\n", .{path});
             return error.GeneralFailure;
         }
         const sessions = std.ArrayList(SlotSess).init(allocator);
@@ -43,6 +45,7 @@ pub const Lib = struct {
 
     fn err(_: *Lib, rv: c_ulong) !void {
         if (rv != C.CKR_OK) {
+            std.debug.print(" ? lib error: {d}\n", .{rv});
             return error.PKCS11Error;
         }
     }
@@ -80,14 +83,17 @@ pub const Lib = struct {
     }
 
     pub fn initialize(self: *Lib) !void {
+        std.debug.print(" ? initialize\n", .{});
         var args: C.CK_C_INITIALIZE_ARGS = .{ .flags = C.CKF_OS_LOCKING_OK };
         try self.err(self.sym.C_Initialize.?(&args));
     }
     pub fn finalize(self: *Lib) !void {
+        std.debug.print(" ? finalize\n", .{});
         const args: C.CK_VOID_PTR = null;
         try self.err(self.sym.C_Finalize.?(args));
     }
     pub fn getSlots(self: *Lib, allocator: std.mem.Allocator, empty: bool) ![]c_ulong {
+        std.debug.print(" ? slots\n", .{});
         var count: C.CK_ULONG = 0;
         const tokenPresent: C.CK_BBOOL = if (empty) C.CK_FALSE else C.CK_TRUE;
         try self.err(self.sym.C_GetSlotList.?(tokenPresent, null, &count));
@@ -97,12 +103,15 @@ pub const Lib = struct {
     }
 
     pub fn closeSessions(self: *Lib, slot_id: c_ulong) !void {
+        std.debug.print(" ? close sessions {d}\n", .{slot_id});
         try self.err(self.sym.C_CloseAllSessions.?(slot_id));
     }
     pub fn closeSession(self: *Lib, session: c_ulong) !void {
+        std.debug.print(" ? close session: {d}\n", .{session});
         try self.err(self.sym.C_CloseSession.?(session));
     }
     pub fn openSession(self: *Lib, slot_id: c_ulong) !c_ulong {
+        std.debug.print(" ? open session {d}\n", .{slot_id});
         var c_flags: c_ulong = 0;
         c_flags = c_flags | C.CKF_RW_SESSION;
         c_flags = c_flags | C.CKF_SERIAL_SESSION;
@@ -112,12 +121,14 @@ pub const Lib = struct {
         return handle;
     }
     pub fn findCertificates(self: *Lib) !void {
+        std.debug.print(" ? find certicates\n", .{});
         // collect slots
         const slots = self.getSlots(self.allocator, false) catch { return; };
         defer self.allocator.free(slots);
         
         // open a session for each slot and collect certicates
         for (slots) |slot| {
+            std.debug.print("   - slot {d}\n", .{slot});
             const session = self.openSession(slot) catch { continue; };
             const template = [_]C.CK_ATTRIBUTE{
                 C.CK_ATTRIBUTE{ .type = C.CKA_CLASS, .pValue = @constCast(&C.CKO_CERTIFICATE), .ulValueLen = @sizeOf(c_ulong) },
@@ -130,14 +141,17 @@ pub const Lib = struct {
                 var count: C.CK_ULONG = 0;
                 const rv = self.sym.C_FindObjects.?(session, &obj, 1, &count);
                 if (rv != C.CKR_OK or count == 0) break;
+                std.debug.print("   - found {d}\n", .{obj});
                 try self.certificates.append(.{ .cert = obj, .sess = session });
             }
         }
     }
     pub fn login(self: *Lib, session: c_ulong, pin: []const u8) !void {
+        std.debug.print(" ? login\n", .{});
         try self.err(self.sym.C_Login.?(session, C.CKU_USER, @constCast(pin.ptr), @intCast(pin.len)));
     }
     pub fn getPrivateKey(self: *Lib, cert: c_ulong) !c_ulong {
+        std.debug.print(" ? private\n", .{});
         const attr_type = C.CKA_ID;
         var attr = C.CK_ATTRIBUTE{
             .type = attr_type,
@@ -170,6 +184,7 @@ pub const Lib = struct {
     }
 
     pub fn getCertificate(self: *Lib, allocator: std.mem.Allocator, cert: c_ulong) ![]const u8 {
+        std.debug.print(" ? certificate\n", .{});
         const session = try self.certSess(cert);
         const attr_type = C.CKA_VALUE;
         var attr = C.CK_ATTRIBUTE{
@@ -185,6 +200,7 @@ pub const Lib = struct {
         return buf[0..];
     }
     pub fn sign(self: *Lib, allocator: std.mem.Allocator, cert: c_ulong, pin: []const u8, data: []const u8) ![]const u8 {
+        std.debug.print(" ? sign\n", .{});
         const session = try self.certSess(cert);
         const slot = try self.sessSlot(session);
 

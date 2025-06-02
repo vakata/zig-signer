@@ -23,6 +23,7 @@ var session: [8]u8 = [_]u8{0} ** 8;
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
+    std.debug.print("Starting ...\n", .{});
 
     const args = try std.process.argsAlloc(allocator);
     if (args.len > 1 and std.mem.eql(u8, args[1], "--prompt")) {
@@ -75,11 +76,13 @@ pub fn main() !void {
         }
         certificates.deinit();
     }
+    std.debug.print("Starting server ...\n", .{});
 
     try serve(allocator);
 }
 
 fn scan(allocator: std.mem.Allocator) !void {
+    std.debug.print(" * scanning ...\n", .{});
     // libs default locations per OS
     const libs: []const []const u8 = comptime switch (builtin.target.os.tag) {
         .macos => &.{
@@ -116,13 +119,14 @@ fn scan(allocator: std.mem.Allocator) !void {
         const tmp = try file.readToEndAlloc(allocator, 255);
         defer allocator.free(tmp);
         const lib = std.mem.trimRight(u8, tmp, "\r\n ");
+        std.debug.print(" * hardcoded lib {s}\n", .{lib});
         if (pkcs11.init(allocator, lib) catch null) |instance| {
             instances.append(instance) catch {};
             instance.findCertificates() catch {};
-        }
-    } else {
+        } } else {
         // scan all available libs
         for (libs) |lib| {
+            std.debug.print(" * iterating lib {s}\n", .{lib});
             if (pkcs11.init(allocator, lib) catch null) |instance| {
                 instances.append(instance) catch {};
                 instance.findCertificates() catch {};
@@ -137,6 +141,7 @@ fn scan(allocator: std.mem.Allocator) !void {
     // scan all instances for certificates
     for (0.., instances.items) |i, instance| {
         for (0.., instance.certificates.items) |j, certificate| {
+            std.debug.print(" * found lib/cert {d}/{d}\n", .{i,j});
             const der = instance.getCertificate(allocator, certificate.cert) catch { continue; };
             defer allocator.free(der);
             const cer = Certificate.init(allocator, der) catch { continue; };
@@ -148,8 +153,10 @@ fn scan(allocator: std.mem.Allocator) !void {
             });
         }
     }
+    std.debug.print(" * scanning done\n", .{});
 }
 fn pick(allocator: std.mem.Allocator) !void {
+    std.debug.print(" * picker\n", .{});
     // if testing - use a hardcoded PIN if provided
     if (builtin.is_test) {
         c = 0;
@@ -178,6 +185,7 @@ fn pick(allocator: std.mem.Allocator) !void {
     p = [_]u8{0} ** 8;
 
     const exe_path = try std.fs.selfExePathAlloc(allocator);
+    std.debug.print(" * picker spawning child with {d} certificates\n", .{ui_list.items.len});
     const argv = &[_][]const u8{ exe_path, "--prompt" };
 
     var child = std.process.Child.init(argv, allocator);
@@ -215,6 +223,7 @@ fn pick(allocator: std.mem.Allocator) !void {
     // process chosen
     if (c_input) |ci| {
         c = try std.fmt.parseInt(u8, ci, 10);
+        std.debug.print(" * picker done - {d}\n", .{c});
     }
     if (p_input) |pi| {
         const len = if (pi.len < 8) pi.len else 8;
@@ -228,11 +237,13 @@ fn pick(allocator: std.mem.Allocator) !void {
     // check for empty pin
     var len = p.len;
     while (len > 0 and p[len - 1] == 0) : (len -= 1) {}
+    std.debug.print(" * picker done - pin len {d}\n", .{len});
     if (len == 0) {
         return error.Cancel;
     }
 }
 fn signRaw(allocator: std.mem.Allocator, data: []const u8) ![]const u8 {
+    std.debug.print(" ! signing raw\n", .{});
     if (c >= certificates.items.len) {
         return error.NoCertificate;
     }
@@ -286,11 +297,13 @@ fn signRaw(allocator: std.mem.Allocator, data: []const u8) ![]const u8 {
     return try signature.toOwnedSlice();
 }
 fn signData(allocator: std.mem.Allocator, data: []const u8) ![]const u8 {
+    std.debug.print(" ! signing data\n", .{});
     var hash: [32]u8 = undefined;
     std.crypto.hash.sha2.Sha256.hash(data, &hash, .{});
     return signHash(allocator, &hash);
 }
 fn signHash(allocator: std.mem.Allocator, hash: []const u8) ![]const u8 {
+    std.debug.print(" ! signing hash\n", .{});
     if (c >= certificates.items.len) {
         return error.NoCertificate;
     }
@@ -325,10 +338,11 @@ fn signHash(allocator: std.mem.Allocator, hash: []const u8) ![]const u8 {
     try p7s.sign(signature);
     // get the base64 encoded result
     const final = try p7s.toString(allocator);
-    // std.debug.print("\nsignature\n{s}\n\n", .{ final });
+    std.debug.print("\nsignature\n{s}\n\n", .{ final });
     return final;
 }
 fn signXML(allocator: std.mem.Allocator, data: []const u8) ![]const u8 {
+    std.debug.print(" ! signing xml\n", .{});
     if (c >= certificates.items.len) {
         return error.NoCertificate;
     }
@@ -403,7 +417,7 @@ fn signXML(allocator: std.mem.Allocator, data: []const u8) ![]const u8 {
     try signed.appendSlice(cert_b64);
     try signed.appendSlice("</X509Certificate></X509Data></KeyInfo></Signature>");
     try signed.appendSlice(c14n_data[pos..]);
-    // std.debug.print("\nxml\n{s}\n\n", .{ signed.items });
+    std.debug.print("\nxml\n{s}\n\n", .{ signed.items });
     return signed.toOwnedSlice();
 }
 fn c14n(allocator: std.mem.Allocator, input: []const u8) ![]const u8 {
@@ -491,9 +505,12 @@ fn serve(allocator: std.mem.Allocator) !void {
     router.post("/signer/selectSigner", httpSelect, .{});
     router.get("/signer/clearSigner", httpClear, .{});
     router.post("/signer/clearSigner", httpClear, .{});
+
+    std.debug.print("Server listening ...\n", .{});
     try server.listen();
 }
 fn httpVersion(_: *httpz.Request, res: *httpz.Response) !void {
+    std.debug.print("/version\n", .{});
     res.header("Access-Control-Allow-Origin", "*");
     res.body = 
         \\{
@@ -517,6 +534,7 @@ fn httpVersion(_: *httpz.Request, res: *httpz.Response) !void {
     ;
 }
 fn httpClear(_: *httpz.Request, res: *httpz.Response) !void {
+    std.debug.print("/clear\n", .{});
     session = [_]u8{0} ** 8;
     res.header("Access-Control-Allow-Origin", "*");
     try res.json(.{
@@ -528,6 +546,7 @@ fn httpClear(_: *httpz.Request, res: *httpz.Response) !void {
     }, .{});
 }
 fn httpSelect(_: *httpz.Request, res: *httpz.Response) !void {
+    std.debug.print("/select\n", .{});
     const letters = "abcdefghijklmnopqrstuvwxyz";
     const rng = std.crypto.random;
     for (&session) |*s| {
@@ -551,6 +570,7 @@ fn httpSelect(_: *httpz.Request, res: *httpz.Response) !void {
     return;
 }
 fn httpSign(req: *httpz.Request, res: *httpz.Response) !void {
+    std.debug.print("/sign\n", .{});
     var signatureType = std.ArrayList(u8).init(res.arena);
     try signatureType.appendSlice("signature");
     if (try req.jsonObject()) |json| {
@@ -558,13 +578,18 @@ fn httpSign(req: *httpz.Request, res: *httpz.Response) !void {
             signatureType.clearRetainingCapacity();
             try signatureType.appendSlice(t.string);
         }
+
+        std.debug.print(" - signature is: {s}\n", .{signatureType.items});
         if (json.get("content")) |cnt| {
+            std.debug.print(" - content length: {d}\n", .{cnt.string.len});
             var signature = std.ArrayList(u8).init(res.arena);
             if (json.get("sid")) |sid| {
                 if (!std.mem.eql(u8, &session, &[_]u8{0} ** 8) and std.mem.eql(u8, &session, sid.string)) {
+                    std.debug.print(" - reusing old session: {s}\n", .{sid.string});
                     // reuse old selection and pin
                 }
             } else {
+                std.debug.print(" - starting new session ...\n", .{});
                 scan(res.arena) catch {};
                 pick(res.arena) catch {};
             }
@@ -573,6 +598,7 @@ fn httpSign(req: *httpz.Request, res: *httpz.Response) !void {
                 const decoded = try res.arena.alloc(u8, try std.base64.standard.Decoder.calcSizeForSlice(cnt.string));
                 _ = try std.base64.standard.Decoder.decode(decoded, cnt.string);
                 // sign
+                std.debug.print(" - signing xml ...\n", .{});
                 const temp = signXML(res.arena, decoded) catch null;
                 // encode the output
                 if (temp) |sig| {
@@ -581,6 +607,7 @@ fn httpSign(req: *httpz.Request, res: *httpz.Response) !void {
                     try signature.appendSlice(b64);
                 }
             } else {
+                std.debug.print(" - signing data ...\n", .{});
                 const temp = signData(res.arena, cnt.string) catch null;
                 if (temp) |sig| {
                     try signature.appendSlice(sig);
