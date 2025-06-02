@@ -233,6 +233,9 @@ fn pick(allocator: std.mem.Allocator) !void {
     }
 }
 fn signRaw(allocator: std.mem.Allocator, data: []const u8) ![]const u8 {
+    if (c >= certificates.items.len) {
+        return error.NoCertificate;
+    }
     // certificate was chosen and needs to be parsed
     const chosen = certificates.items[c];
     const instance = instances.items[chosen.lib];
@@ -288,6 +291,9 @@ fn signData(allocator: std.mem.Allocator, data: []const u8) ![]const u8 {
     return signHash(allocator, &hash);
 }
 fn signHash(allocator: std.mem.Allocator, hash: []const u8) ![]const u8 {
+    if (c >= certificates.items.len) {
+        return error.NoCertificate;
+    }
     // certificate is needed for p7s
     const chosen = certificates.items[c];
     const instance = instances.items[chosen.lib];
@@ -323,6 +329,9 @@ fn signHash(allocator: std.mem.Allocator, hash: []const u8) ![]const u8 {
     return final;
 }
 fn signXML(allocator: std.mem.Allocator, data: []const u8) ![]const u8 {
+    if (c >= certificates.items.len) {
+        return error.NoCertificate;
+    }
     // canonicalize
     const c14n_data = try c14n(allocator, data);
     defer allocator.free(c14n_data);
