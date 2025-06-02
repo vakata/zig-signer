@@ -7,7 +7,7 @@ const Certificate = @import("asn1/structures/Certificate.zig").Certificate;
 const DateTime = @import("helpers/DateTime.zig").DateTime;
 const P7S = @import("asn1/structures/P7S.zig").P7S;
 const webui = @import("webui");
-const CertificateList = struct { lib: u64, handle: u64, name: []const u8 };
+const CertificateList = struct { lib: u8, handle: u8, name: []const u8 };
 const xml = @import("xml");
 const httpz = @import("httpz");
 
@@ -142,8 +142,8 @@ fn scan(allocator: std.mem.Allocator) !void {
             const cer = Certificate.init(allocator, der) catch { continue; };
             defer cer.deinit();
             try certificates.append(.{
-                .lib = i,
-                .handle = j,
+                .lib = @truncate(i),
+                .handle = @truncate(j),
                 .name = cer.name(allocator) catch ""
             });
         }
@@ -164,11 +164,11 @@ fn pick(allocator: std.mem.Allocator) !void {
     }
 
     // build a list of certificates to pick from for the UI
-    var ui_list = std.ArrayList(struct { handle: u64, name: []const u8 }).init(allocator);
+    var ui_list = std.ArrayList(struct { handle: u8, name: []const u8 }).init(allocator);
     defer ui_list.deinit();
     for (0.., certificates.items) |i, certificate| {
         try ui_list.append(.{
-            .handle = i,
+            .handle = @truncate(i),
             .name = certificate.name
         });
     }
