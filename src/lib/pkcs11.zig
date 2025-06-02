@@ -19,6 +19,7 @@ pub const Lib = struct {
         std.debug.print(" ? init starting ... {s}\n", .{path});
         const self = try allocator.create(Lib);
         var lib = try std.DynLib.open(path);
+        std.debug.print(" ? lib opened ... {s}\n", .{path});
         var sym: *C.CK_FUNCTION_LIST = undefined;
         const getFunctionList = lib.lookup(C.CK_C_GetFunctionList, "C_GetFunctionList").?.?;
         const rv = getFunctionList(@ptrCast(&sym));
