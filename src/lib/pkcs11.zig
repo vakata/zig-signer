@@ -6,7 +6,7 @@ pub const C = @cImport({
 
 // TODO: remove those in favour of a single struct and group c functions at the top
 const SlotSess = struct { slot:c_ulong, sess:c_ulong };
-const CertSess = struct { cert:u64, sess:c_ulong };
+const CertSess = struct { cert:c_ulong, sess:c_ulong };
 
 pub const Lib = struct {
     allocator: std.mem.Allocator,
@@ -46,7 +46,7 @@ pub const Lib = struct {
             return error.PKCS11Error;
         }
     }
-    fn certSess(self: *Lib, cert: u64) !c_ulong {
+    fn certSess(self: *Lib, cert: c_ulong) !c_ulong {
         for (self.certificates.items[0..]) |entry| {
             if (cert == entry.cert) {
                 return entry.sess;
@@ -54,7 +54,7 @@ pub const Lib = struct {
         }
         return error.UnknownCertificate;
     }
-    fn sessCert(self: *Lib, sess: c_ulong) !u64 {
+    fn sessCert(self: *Lib, sess: c_ulong) !c_ulong {
         for (self.certificates.items[0..]) |entry| {
             if (sess == entry.sess) {
                 return entry.cert;
@@ -87,7 +87,7 @@ pub const Lib = struct {
         const args: C.CK_VOID_PTR = null;
         try self.err(self.sym.C_Finalize.?(args));
     }
-    pub fn getSlots(self: *Lib, allocator: std.mem.Allocator, empty: bool) ![]u64 {
+    pub fn getSlots(self: *Lib, allocator: std.mem.Allocator, empty: bool) ![]c_ulong {
         var count: C.CK_ULONG = 0;
         const tokenPresent: C.CK_BBOOL = if (empty) C.CK_FALSE else C.CK_TRUE;
         try self.err(self.sym.C_GetSlotList.?(tokenPresent, null, &count));
@@ -120,13 +120,13 @@ pub const Lib = struct {
         for (slots) |slot| {
             const session = self.openSession(slot) catch { continue; };
             const template = [_]C.CK_ATTRIBUTE{
-                C.CK_ATTRIBUTE{ .type = C.CKA_CLASS, .pValue = @constCast(&C.CKO_CERTIFICATE), .ulValueLen = @sizeOf(u64) },
+                C.CK_ATTRIBUTE{ .type = C.CKA_CLASS, .pValue = @constCast(&C.CKO_CERTIFICATE), .ulValueLen = @sizeOf(c_ulong) },
             };
             try self.err(self.sym.C_FindObjectsInit.?(session, @constCast(&template), 1));
 
             defer _ = self.sym.C_FindObjectsFinal.?(session);
             while (true) {
-                var obj: u64 = 0;
+                var obj: c_ulong = 0;
                 var count: C.CK_ULONG = 0;
                 const rv = self.sym.C_FindObjects.?(session, &obj, 1, &count);
                 if (rv != C.CKR_OK or count == 0) break;
@@ -135,9 +135,9 @@ pub const Lib = struct {
         }
     }
     pub fn login(self: *Lib, session: c_ulong, pin: []const u8) !void {
-        try self.err(self.sym.C_Login.?(session, C.CKU_USER, @constCast(pin.ptr), pin.len));
+        try self.err(self.sym.C_Login.?(session, C.CKU_USER, @constCast(pin.ptr), @intCast(pin.len)));
     }
-    pub fn getPrivateKey(self: *Lib, cert: c_ulong) !u64 {
+    pub fn getPrivateKey(self: *Lib, cert: c_ulong) !c_ulong {
         const attr_type = C.CKA_ID;
         var attr = C.CK_ATTRIBUTE{
             .type = attr_type,
@@ -154,13 +154,13 @@ pub const Lib = struct {
         try self.err(self.sym.C_GetAttributeValue.?(session, cert, &attr, 1));
 
         const template = [_]C.CK_ATTRIBUTE{
-            C.CK_ATTRIBUTE{ .type = C.CKA_CLASS, .pValue = @constCast(&C.CKO_PRIVATE_KEY), .ulValueLen = @sizeOf(u64) },
-            C.CK_ATTRIBUTE{ .type = C.CKA_ID, .pValue = buf.ptr, .ulValueLen = buf.len },
+            C.CK_ATTRIBUTE{ .type = C.CKA_CLASS, .pValue = @constCast(&C.CKO_PRIVATE_KEY), .ulValueLen = @sizeOf(c_ulong) },
+            C.CK_ATTRIBUTE{ .type = C.CKA_ID, .pValue = buf.ptr, .ulValueLen = @intCast(buf.len) },
         };
-        try self.err(self.sym.C_FindObjectsInit.?(session, @constCast(&template), template.len));
+        try self.err(self.sym.C_FindObjectsInit.?(session, @constCast(&template), @intCast(template.len)));
         defer _ = self.sym.C_FindObjectsFinal.?(session);
 
-        var object: u64 = undefined;
+        var object: c_ulong = undefined;
         var count: C.CK_ULONG = 0;
         try self.err(self.sym.C_FindObjects.?(session, &object, 1, &count));
         if (count == 0) {
@@ -169,7 +169,7 @@ pub const Lib = struct {
         return object;
     }
 
-    pub fn getCertificate(self: *Lib, allocator: std.mem.Allocator, cert: u64) ![]const u8 {
+    pub fn getCertificate(self: *Lib, allocator: std.mem.Allocator, cert: c_ulong) ![]const u8 {
         const session = try self.certSess(cert);
         const attr_type = C.CKA_VALUE;
         var attr = C.CK_ATTRIBUTE{
@@ -184,7 +184,7 @@ pub const Lib = struct {
         try self.err(self.sym.C_GetAttributeValue.?(session, cert, &attr, 1));
         return buf[0..];
     }
-    pub fn sign(self: *Lib, allocator: std.mem.Allocator, cert: u64, pin: []const u8, data: []const u8) ![]const u8 {
+    pub fn sign(self: *Lib, allocator: std.mem.Allocator, cert: c_ulong, pin: []const u8, data: []const u8) ![]const u8 {
         const session = try self.certSess(cert);
         const slot = try self.sessSlot(session);
 
@@ -211,7 +211,7 @@ pub const Lib = struct {
             .pValue = null,
             .ulValueLen = 0,
         };
-        var buf: u64 = 0;
+        var buf: c_ulong = 0;
         attr.pValue = @constCast(&buf);
         try self.err(self.sym.C_GetAttributeValue.?(session, privkey, &attr, 1));
 
@@ -239,10 +239,10 @@ pub const Lib = struct {
         const mechanism = C.CK_MECHANISM{ .mechanism = selected, .pParameter = null, .ulParameterLen = 0 };
         try self.err(self.sym.C_SignInit.?(session, @constCast(&mechanism), privkey));
         var siglen: c_ulong = 0;
-        try self.err(self.sym.C_Sign.?(session, @constCast(data.ptr), data.len, null, &siglen));
+        try self.err(self.sym.C_Sign.?(session, @constCast(data.ptr), @intCast(data.len), null, &siglen));
         const sig = try allocator.alloc(u8, siglen);
         errdefer allocator.free(sig);
-        try self.err(self.sym.C_Sign.?(session, @constCast(data.ptr), data.len, sig.ptr, &siglen));
+        try self.err(self.sym.C_Sign.?(session, @constCast(data.ptr), @intCast(data.len), sig.ptr, &siglen));
         return sig;
     }
 };
