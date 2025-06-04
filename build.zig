@@ -10,7 +10,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe_mod.addIncludePath(.{ .cwd_relative = "src" });
-    exe_mod.addIncludePath(.{ .cwd_relative = "src/lib" });
+    exe_mod.addIncludePath(.{ .cwd_relative = "src/lib/headers" });
 
     const exe = b.addExecutable(.{
         .name = "signer",

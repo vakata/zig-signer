@@ -1,7 +1,7 @@
 const std = @import("std");
 
 pub const C = @cImport({
-    @cInclude("pkcs11.h");
+    @cInclude("pkcs11wrapper.h");
 });
 
 // TODO: remove those in favour of a single struct and group c functions at the top
