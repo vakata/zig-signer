@@ -10,15 +10,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     exe_mod.addIncludePath(.{ .cwd_relative = "src" });
+    exe_mod.addIncludePath(.{ .cwd_relative = "src/lib" });
 
     const exe = b.addExecutable(.{
         .name = "signer",
         .root_module = exe_mod,
     });
-
-    const p11 = b.dependency("p11", .{}).path("common");
-    exe.root_module.addIncludePath(p11);
-    exe.root_module.addIncludePath(b.path("include"));
 
     const zig_webui = b.dependency("zig_webui", .{
         .target = target,
