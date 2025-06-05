@@ -1,6 +1,5 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const pkcs11 = @import("lib/pkcs11.zig").Lib;
 const asn1 = @import("asn1/asn1.zig");
 const Node = asn1.Node;
 const Certificate = @import("asn1/structures/Certificate.zig").Certificate;
@@ -10,6 +9,11 @@ const webui = @import("webui");
 const CertificateList = struct { lib: u8, handle: u8, name: []const u8 };
 const xml = @import("xml");
 const httpz = @import("httpz");
+const pkcs11 = if (builtin.target.os.tag == .windows)
+    @import("lib/pkcs11_win.zig").Lib
+else
+    @import("lib/pkcs11.zig").Lib
+;
 
 // global state - pin and chosen certificate that get populated by webui
 var p: [8]u8 = [_]u8{0} ** 8;
