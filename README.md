@@ -15,3 +15,7 @@ A playground to explore zig. The goal of this project is to start a local web se
  - webui is functional
  - web server is working
  - custom lib location can be hardcoded using a file named lib in cwd
+
+***TODO:***
+ - test with more pkcs11 providers
+ - fix occasional windows segfault? (especially when reusing session)
