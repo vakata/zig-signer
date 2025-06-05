@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub const CK_VERSION = extern struct {
+pub const CK_VERSION = packed struct {
     major: u8,
     minor: u8,
 };
@@ -38,36 +38,37 @@ pub const CK_TOKEN_INFO = extern struct {
     firmwareVersion: CK_VERSION,
     utcTime: [16]u8,
 };
-pub const CK_SESSION_INFO = extern struct {
+pub const CK_SESSION_INFO = packed struct {
     slotID: c_ulong,
     state: c_ulong,
     flags: c_ulong,
     ulDeviceError: c_ulong,
 };
-pub const CK_ATTRIBUTE = extern struct {
+pub const CK_ATTRIBUTE = packed struct {
     type: c_ulong,
     pValue: ?*anyopaque,
     ulValueLen: c_ulong,
 };
-pub const CK_MECHANISM = extern struct {
+pub const CK_MECHANISM = packed struct {
     mechanism: c_ulong,
     pParameter: ?*anyopaque,
     ulParameterLen: c_ulong,
 };
-pub const CK_MECHANISM_INFO = extern struct {
+pub const CK_MECHANISM_INFO = packed struct {
     ulMinKeySize: c_ulong,
     ulMaxKeySize: c_ulong,
     flags: c_ulong,
 };
 pub const CK_NOTIFY = ?*const fn (c_ulong, c_ulong, ?*anyopaque) callconv(.C) c_ulong;
 
-const CK_FUNCTION_LIST_PTR = [*c]CK_FUNCTION_LIST;
-const CK_FUNCTION_LIST_PTR_PTR = [*c]CK_FUNCTION_LIST_PTR;
+const CK_FUNCTION_LIST_PTR = *CK_FUNCTION_LIST;
+const CK_FUNCTION_LIST_PTR_PTR = *CK_FUNCTION_LIST_PTR;
 
 const C_Initialize = ?*const fn (?*anyopaque) callconv(.C) c_ulong;
 const C_Finalize = ?*const fn (?*anyopaque) callconv(.C) c_ulong;
 const C_GetInfo = ?*const fn (*CK_INFO) callconv(.C) c_ulong;
 const C_GetFunctionList = ?*const fn (CK_FUNCTION_LIST_PTR_PTR) callconv(.C) c_ulong;
+const C_GetFunctionListInt = ?*const fn (?*anyopaque) callconv(.C) c_ulong;
 const C_GetSlotList = ?*const fn (u8, [*c]c_ulong, *c_ulong) callconv(.C) c_ulong;
 const C_GetSlotInfo = ?*const fn (c_ulong, *CK_SLOT_INFO) callconv(.C) c_ulong;
 const C_GetTokenInfo = ?*const fn (c_ulong, *CK_TOKEN_INFO) callconv(.C) c_ulong;
@@ -133,12 +134,12 @@ const C_GetFunctionStatus = ?*const fn (c_ulong) callconv(.C) c_ulong;
 const C_CancelFunction = ?*const fn (c_ulong) callconv(.C) c_ulong;
 const C_WaitForSlotEvent = ?*const fn (c_ulong, [*c]c_ulong, ?*anyopaque) callconv(.C) c_ulong;
 
-pub const CK_FUNCTION_LIST = extern struct {
+pub const CK_FUNCTION_LIST = packed struct {
     version: CK_VERSION,
     C_Initialize: C_Initialize,
     C_Finalize: C_Finalize,
     C_GetInfo: C_GetInfo,
-    C_GetFunctionList: C_GetFunctionList,
+    C_GetFunctionList: C_GetFunctionListInt,
     C_GetSlotList: C_GetSlotList,
     C_GetSlotInfo: C_GetSlotInfo,
     C_GetTokenInfo: C_GetTokenInfo,
@@ -332,14 +333,14 @@ pub const Lib = struct {
         for (slots) |slot| {
             std.debug.print("   - slot {d}\n", .{slot});
 
-            const si = try self.allocator.create(CK_SLOT_INFO);
-            defer self.allocator.destroy(si);
-            try self.err(self.sym.C_GetSlotInfo.?(slot, si));
-            std.debug.print("     {s} {s}\n", .{si.manufacturerID, si.slotDescription});
-            const ti = try self.allocator.create(CK_TOKEN_INFO);
-            defer self.allocator.destroy(ti);
-            try self.err(self.sym.C_GetTokenInfo.?(slot, ti));
-            std.debug.print("     {s} {s}\n", .{ti.manufacturerID, ti.label});
+            // const si = try self.allocator.create(CK_SLOT_INFO);
+            // defer self.allocator.destroy(si);
+            // try self.err(self.sym.C_GetSlotInfo.?(slot, si));
+            // std.debug.print("     {s} {s}\n", .{si.manufacturerID, si.slotDescription});
+            // const ti = try self.allocator.create(CK_TOKEN_INFO);
+            // defer self.allocator.destroy(ti);
+            // try self.err(self.sym.C_GetTokenInfo.?(slot, ti));
+            // std.debug.print("     {s} {s}\n", .{ti.manufacturerID, ti.label});
 
             const session = self.openSession(slot) catch { continue; };
             const t: c_ulong = 0;
@@ -367,26 +368,24 @@ pub const Lib = struct {
     pub fn getPrivateKey(self: *Lib, cert: c_ulong) !c_ulong {
         std.debug.print(" ? private\n", .{});
         const cka_id: c_ulong = 0x00000102;
-        var attr = [_]CK_ATTRIBUTE{
-            CK_ATTRIBUTE{
+        var attr = CK_ATTRIBUTE{
                 .type = cka_id,
                 .pValue = null,
                 .ulValueLen = 0,
-            }
-        };
+            };
 
         const session = try self.certSess(cert);
         try self.err(self.sym.C_GetAttributeValue.?(session, cert, &attr, 1));
-        const buf = try self.allocator.alloc(u8, attr[0].ulValueLen);
+        const buf = try self.allocator.alloc(u8, attr.ulValueLen);
         defer self.allocator.free(buf);
 
-        attr[0].pValue = buf.ptr;
+        attr.pValue = buf.ptr;
         try self.err(self.sym.C_GetAttributeValue.?(session, cert, &attr, 1));
 
         const cka_class: c_ulong = 0x00000000;
-        const cko_private_key: c_ulong = 0x00000003;
+        var cko_private_key: c_ulong = 0x00000003;
         var template = [_]CK_ATTRIBUTE{
-            CK_ATTRIBUTE{ .type = cka_class, .pValue = @constCast(&cko_private_key), .ulValueLen = @sizeOf(c_ulong) },
+            CK_ATTRIBUTE{ .type = cka_class, .pValue = @ptrCast(&cko_private_key), .ulValueLen = @sizeOf(c_ulong) },
             CK_ATTRIBUTE{ .type = cka_id, .pValue = buf.ptr, .ulValueLen = @intCast(buf.len) },
         };
         try self.err(self.sym.C_FindObjectsInit.?(session, &template, @intCast(template.len)));
@@ -405,17 +404,16 @@ pub const Lib = struct {
         std.debug.print(" ? certificate\n", .{});
         const session = try self.certSess(cert);
         const attr_type = 0x00000011;
-        var attr = [_]CK_ATTRIBUTE{
+        var attr = 
             CK_ATTRIBUTE{
                 .type = attr_type,
                 .pValue = null,
                 .ulValueLen = 0,
-            }
-        };
+            };
         try self.err(self.sym.C_GetAttributeValue.?(session, cert, &attr, 1));
-        const buf = try allocator.alloc(u8, attr[0].ulValueLen);
+        const buf = try allocator.alloc(u8, attr.ulValueLen);
         errdefer allocator.free(buf);
-        attr[0].pValue = buf.ptr;
+        attr.pValue = buf.ptr;
         try self.err(self.sym.C_GetAttributeValue.?(session, cert, &attr, 1));
         return buf[0..];
     }
