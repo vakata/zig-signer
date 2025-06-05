@@ -343,10 +343,10 @@ pub const Lib = struct {
             // std.debug.print("     {s} {s}\n", .{ti.manufacturerID, ti.label});
 
             const session = self.openSession(slot) catch { continue; };
-            const t: c_ulong = 0;
-            var v: c_ulong = 0x00000001;
+            const cka_class: c_ulong = 0x00000000;
+            var cko_certificate: c_ulong = 0x00000001;
             const template = [_]CK_ATTRIBUTE{
-                CK_ATTRIBUTE{ .type = t, .pValue = @constCast(&v), .ulValueLen = @sizeOf(c_ulong) },
+                CK_ATTRIBUTE{ .type = cka_class, .pValue = @constCast(&cko_certificate), .ulValueLen = @sizeOf(c_ulong) },
             };
             try self.err(self.sym.C_FindObjectsInit.?(session, @constCast(&template), 1));
 
@@ -401,12 +401,12 @@ pub const Lib = struct {
     }
 
     pub fn getCertificate(self: *Lib, allocator: std.mem.Allocator, cert: c_ulong) ![]const u8 {
-        std.debug.print(" ? certificate\n", .{});
+        std.debug.print(" ? certificate {d}\n", .{cert});
         const session = try self.certSess(cert);
-        const attr_type = 0x00000011;
+        const cka_value: c_ulong = 0x00000011;
         var attr = 
             CK_ATTRIBUTE{
-                .type = attr_type,
+                .type = cka_value,
                 .pValue = null,
                 .ulValueLen = 0,
             };
@@ -439,10 +439,10 @@ pub const Lib = struct {
 
         try self.err(self.sym.C_GetMechanismList.?(slot, @ptrCast(mech_list.ptr), &mech_count));
 
-        const t: c_ulong = 0x00000100;
+        const cka_key_type: c_ulong = 0x00000100;
         var attr = [_]CK_ATTRIBUTE{
             CK_ATTRIBUTE{
-                .type = t,
+                .type = cka_key_type,
                 .pValue = null,
                 .ulValueLen = 0,
             }
