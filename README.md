@@ -18,4 +18,4 @@ A playground to explore zig. The goal of this project is to start a local web se
 
 ***TODO:***
  - test with more pkcs11 providers
- - fix occasional windows segfault? (especially when reusing session)
+ - test on more machines (especially windows and linux)

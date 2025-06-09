@@ -497,8 +497,14 @@ fn c14n(allocator: std.mem.Allocator, input: []const u8) ![]const u8 {
     return output_stream.toOwnedSlice();
 }
 
+const App = struct {
+    allocator: std.mem.Allocator
+};
 fn serve(allocator: std.mem.Allocator) !void {
-    var server = try httpz.Server(void).init(allocator, .{ .port = 8090 }, {});
+    var app = App{
+        .allocator = allocator
+    };
+    var server = try httpz.Server(*App).init(allocator, .{ .port = 8090 }, &app);
     defer server.deinit();
     defer server.stop();
 
@@ -514,7 +520,7 @@ fn serve(allocator: std.mem.Allocator) !void {
     std.debug.print("Server listening ...\n", .{});
     try server.listen();
 }
-fn httpVersion(_: *httpz.Request, res: *httpz.Response) !void {
+fn httpVersion(_: *App, _: *httpz.Request, res: *httpz.Response) !void {
     std.debug.print("/version\n", .{});
     res.header("Access-Control-Allow-Origin", "*");
     res.body = 
@@ -538,8 +544,7 @@ fn httpVersion(_: *httpz.Request, res: *httpz.Response) !void {
         \\}
     ;
 }
-fn httpClear(_: *httpz.Request, res: *httpz.Response) !void {
-    std.debug.print("/clear\n", .{});
+fn httpClear(_: *App, _: *httpz.Request, res: *httpz.Response) !void { std.debug.print("/clear\n", .{});
     session = [_]u8{0} ** 8;
     res.header("Access-Control-Allow-Origin", "*");
     try res.json(.{
@@ -550,7 +555,7 @@ fn httpClear(_: *httpz.Request, res: *httpz.Response) !void {
         .errorCode = 0
     }, .{});
 }
-fn httpSelect(_: *httpz.Request, res: *httpz.Response) !void {
+fn httpSelect(app: *App, _: *httpz.Request, res: *httpz.Response) !void {
     std.debug.print("/select\n", .{});
     const letters = "abcdefghijklmnopqrstuvwxyz";
     const rng = std.crypto.random;
@@ -558,8 +563,8 @@ fn httpSelect(_: *httpz.Request, res: *httpz.Response) !void {
         const index = rng.uintLessThan(u8, 26);
         s.* = letters[index];
     }
-    scan(res.arena) catch {};
-    pick(res.arena) catch {};
+    scan(app.allocator) catch {};
+    pick(app.allocator) catch {};
     const signature = try signData(res.arena, "SESSION");
     res.header("Access-Control-Allow-Origin", "*");
     try res.json(.{
@@ -574,7 +579,7 @@ fn httpSelect(_: *httpz.Request, res: *httpz.Response) !void {
     }, .{});
     return;
 }
-fn httpSign(req: *httpz.Request, res: *httpz.Response) !void {
+fn httpSign(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
     std.debug.print("/sign\n", .{});
     var signatureType = std.ArrayList(u8).init(res.arena);
     try signatureType.appendSlice("signature");
@@ -595,8 +600,8 @@ fn httpSign(req: *httpz.Request, res: *httpz.Response) !void {
                 }
             } else {
                 std.debug.print(" - starting new session ...\n", .{});
-                scan(res.arena) catch {};
-                pick(res.arena) catch {};
+                scan(app.allocator) catch {};
+                pick(app.allocator) catch {};
             }
             if (std.mem.eql(u8, "xmldsig", signatureType.items)) {
                 // decode the input
