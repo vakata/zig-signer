@@ -1,5 +1,29 @@
 # SIGNER
-A playground to explore zig. The goal of this project is to start a local web server which can process incoming requests to sign hashes using an QES. To do this all known locations for pkcs11 provider libs are searched and instantiated. All available devices are scanned and a list of certificates is built. Then a UI is presented to the user in order to pick a certificate and enter the corresponding PIN. Then the provided hash is signed and pkcs7 structure is returned.
+
+A playground to explore zig. The goal of this project is to be able to sign data using a QES from a web context.
+
+For example a web app that needs the user to sign a string should be able to POST the base64-encoded string to ```http://127.0.0.1:8090/sign``` like so:
+```
+{"content":"dGV4dA=="}
+```
+This should result in a response with a base64-encoded p7s in one of the fields:
+```
+{
+    "version":"1.0",
+    "signatureType":"signature",
+    "signature":"MIIJWgYJKo...",
+    "status":"ok",
+    "reasonCode":200,
+    "reasonText":"Signed OK",
+    "errorCode":0
+}
+```
+
+In order to achieve this a local web server is started. The server processes incoming sign requests and presents the user with a UI to pick a certificate and enter the PIN. Once signing is complete the signed output is returned to the caller.
+
+Under the hood once the sign request comes in some common pkcs11 lib locations are scanned and each available lib is instantiated. All available signing certificates are gathered and presented to the user. The input is signed using the chosen certificate and PIN and the signed output is returned to the caller. It should be possible to sign raw data, sha256 hashes of data or xml documents and the output is either a pkcs7 structure or a signed XML (using xmldsig) depending on the input.
+
+It should be possible to hardcode the lib that will be used in some sort of config. Additionaly there should be a way to sign a lot of separate items without asking for a PIN every time.
 
 ***Progress:***
  - [x] pkcs11 is ready

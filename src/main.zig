@@ -9,11 +9,7 @@ const webui = @import("webui");
 const CertificateList = struct { lib: u8, handle: u8, name: []const u8 };
 const xml = @import("xml");
 const httpz = @import("httpz");
-const pkcs11 = if (builtin.target.os.tag == .windows)
-    @import("lib/pkcs11_win.zig").Lib
-else
-    @import("lib/pkcs11.zig").Lib
-;
+const pkcs11 = @import("lib/pkcs11.zig").Lib;
 
 // global state - pin and chosen certificate that get populated by webui
 var p: [8]u8 = [_]u8{0} ** 8;
@@ -263,6 +259,7 @@ fn signRaw(allocator: std.mem.Allocator, data: []const u8) ![]const u8 {
     var tosign = std.ArrayList(u8).init(allocator);
     defer tosign.deinit();
     if (cert.isRSA()) {
+        std.debug.print("cert is rsa", .{});
         const tmp = try asn1.Node.fromChildren(allocator, .sequence, &[_]*asn1.Node{
             try asn1.Node.fromChildren(allocator, .sequence, &[_]*asn1.Node{
                 try asn1.Node.fromValue(allocator, .object_identifier, .{ .string = "2.16.840.1.101.3.4.2.1" }),
@@ -615,6 +612,20 @@ fn httpSign(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
                     const b64 = try res.arena.alloc(u8, std.base64.standard.Encoder.calcSize(sig.len));
                     _ = std.base64.standard.Encoder.encode(b64, sig);
                     try signature.appendSlice(b64);
+                }
+            } else if (std.mem.eql(u8, "raw", signatureType.items)) {
+                std.debug.print(" - signing raw ...\n", .{});
+                const temp = signRaw(res.arena, cnt.string) catch null;
+                if (temp) |sig| {
+                    const b64 = try res.arena.alloc(u8, std.base64.standard.Encoder.calcSize(sig.len));
+                    _ = std.base64.standard.Encoder.encode(b64, sig);
+                    try signature.appendSlice(b64);
+                }
+            } else if (std.mem.eql(u8, "hash", signatureType.items)) {
+                std.debug.print(" - signing hash ...\n", .{});
+                const temp = signHash(res.arena, cnt.string) catch null;
+                if (temp) |sig| {
+                    try signature.appendSlice(sig);
                 }
             } else {
                 std.debug.print(" - signing data ...\n", .{});
