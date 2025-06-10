@@ -22,12 +22,17 @@ pub const Certificate = struct {
         self.allocator.destroy(self);
     }
     pub fn isECDSA(self: *Certificate) bool {
-        // TODO: check subject public key info - algorithm id - rsa: 1.2.840.113549.1.1.1 
-        return std.mem.indexOf(u8, self.der, "\x2A\x86\x48\xCE\x3D\x02\x01") != null;
+        return !self.isRSA();
     }
     pub fn isRSA(self: *Certificate) bool {
-        // TODO: check subject public key info - algorithm id - rsa: 1.2.840.113549.1.1.1 
-        return std.mem.indexOf(u8, self.der, "\x2A\x86\x48\xCE\x3D\x02\x01") == null;
+        const val = self.nodes.items[0].child(0).child(6).child(0).child(0).value() catch { return false; };
+        defer if (val == .string) self.allocator.free(val.string);
+        switch (val) {
+            .string => {
+                return std.mem.eql(u8, val.string, "1.2.840.113549.1.1.1");
+            },
+            else => return false,
+        }
     }
     pub fn serial(self: *Certificate, allocator: std.mem.Allocator) ![]const u8 {
         const node = self.nodes.items[0].child(0).child(1);
