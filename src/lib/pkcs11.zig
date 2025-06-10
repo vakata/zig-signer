@@ -1,8 +1,15 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
-pub const CK_VERSION = extern struct {
-    major: u8,
-    minor: u8,
+pub const CK_VERSION = switch (builtin.target.os.tag) {
+    .windows => packed struct {
+        major: u8,
+        minor: u8,
+    },
+    else => extern struct {
+        major: u8,
+        minor: u8,
+    }
 };
 pub const CK_INFO = extern struct {
     cryptokiVersion: CK_VERSION,
@@ -44,30 +51,52 @@ pub const CK_SESSION_INFO = extern struct {
     flags: c_ulong,
     ulDeviceError: c_ulong,
 };
-pub const CK_ATTRIBUTE = extern struct {
-    type: c_ulong,
-    pValue: ?*anyopaque,
-    ulValueLen: c_ulong,
+pub const CK_ATTRIBUTE = switch (builtin.target.os.tag) {
+    .windows => packed struct {
+        type: c_ulong,
+        pValue: ?*anyopaque,
+        ulValueLen: c_ulong,
+    },
+    else => extern struct {
+        type: c_ulong,
+        pValue: ?*anyopaque,
+        ulValueLen: c_ulong,
+    }
 };
-pub const CK_MECHANISM = extern struct {
-    mechanism: c_ulong,
-    pParameter: ?*anyopaque,
-    ulParameterLen: c_ulong,
+pub const CK_MECHANISM = switch (builtin.target.os.tag) {
+    .windows => packed struct {
+        mechanism: c_ulong,
+        pParameter: ?*anyopaque,
+        ulParameterLen: c_ulong,
+    },
+    else => extern struct {
+        mechanism: c_ulong,
+        pParameter: ?*anyopaque,
+        ulParameterLen: c_ulong,
+    }
 };
-pub const CK_MECHANISM_INFO = extern struct {
-    ulMinKeySize: c_ulong,
-    ulMaxKeySize: c_ulong,
-    flags: c_ulong,
+pub const CK_MECHANISM_INFO = switch (builtin.target.os.tag) {
+    .windows => packed struct {
+        ulMinKeySize: c_ulong,
+        ulMaxKeySize: c_ulong,
+        flags: c_ulong,
+    },
+    else => extern struct {
+        ulMinKeySize: c_ulong,
+        ulMaxKeySize: c_ulong,
+        flags: c_ulong,
+    }
 };
 pub const CK_NOTIFY = ?*const fn (c_ulong, c_ulong, ?*anyopaque) callconv(.C) c_ulong;
 
-const CK_FUNCTION_LIST_PTR = [*c]CK_FUNCTION_LIST;
-const CK_FUNCTION_LIST_PTR_PTR = [*c]CK_FUNCTION_LIST_PTR;
+const CK_FUNCTION_LIST_PTR = *CK_FUNCTION_LIST;
+const CK_FUNCTION_LIST_PTR_PTR = *CK_FUNCTION_LIST_PTR;
 
 const C_Initialize = ?*const fn (?*anyopaque) callconv(.C) c_ulong;
 const C_Finalize = ?*const fn (?*anyopaque) callconv(.C) c_ulong;
 const C_GetInfo = ?*const fn (*CK_INFO) callconv(.C) c_ulong;
 const C_GetFunctionList = ?*const fn (CK_FUNCTION_LIST_PTR_PTR) callconv(.C) c_ulong;
+const C_GetFunctionListInt = ?*const fn (?*anyopaque) callconv(.C) c_ulong;
 const C_GetSlotList = ?*const fn (u8, [*c]c_ulong, *c_ulong) callconv(.C) c_ulong;
 const C_GetSlotInfo = ?*const fn (c_ulong, *CK_SLOT_INFO) callconv(.C) c_ulong;
 const C_GetTokenInfo = ?*const fn (c_ulong, *CK_TOKEN_INFO) callconv(.C) c_ulong;
@@ -133,79 +162,152 @@ const C_GetFunctionStatus = ?*const fn (c_ulong) callconv(.C) c_ulong;
 const C_CancelFunction = ?*const fn (c_ulong) callconv(.C) c_ulong;
 const C_WaitForSlotEvent = ?*const fn (c_ulong, [*c]c_ulong, ?*anyopaque) callconv(.C) c_ulong;
 
-pub const CK_FUNCTION_LIST = extern struct {
-    version: CK_VERSION,
-    C_Initialize: C_Initialize,
-    C_Finalize: C_Finalize,
-    C_GetInfo: C_GetInfo,
-    C_GetFunctionList: C_GetFunctionList,
-    C_GetSlotList: C_GetSlotList,
-    C_GetSlotInfo: C_GetSlotInfo,
-    C_GetTokenInfo: C_GetTokenInfo,
-    C_GetMechanismList: C_GetMechanismList,
-    C_GetMechanismInfo: C_GetMechanismInfo,
-    C_InitToken: C_InitToken,
-    C_InitPIN: C_InitPIN,
-    C_SetPIN: C_SetPIN,
-    C_OpenSession: C_OpenSession,
-    C_CloseSession: C_CloseSession,
-    C_CloseAllSessions: C_CloseAllSessions,
-    C_GetSessionInfo: C_GetSessionInfo,
-    C_GetOperationState: C_GetOperationState,
-    C_SetOperationState: C_SetOperationState,
-    C_Login: C_Login,
-    C_Logout: C_Logout,
-    C_CreateObject: C_CreateObject,
-    C_CopyObject: C_CopyObject,
-    C_DestroyObject: C_DestroyObject,
-    C_GetObjectSize: C_GetObjectSize,
-    C_GetAttributeValue: C_GetAttributeValue,
-    C_SetAttributeValue: C_SetAttributeValue,
-    C_FindObjectsInit: C_FindObjectsInit,
-    C_FindObjects: C_FindObjects,
-    C_FindObjectsFinal: C_FindObjectsFinal,
-    C_EncryptInit: C_EncryptInit,
-    C_Encrypt: C_Encrypt,
-    C_EncryptUpdate: C_EncryptUpdate,
-    C_EncryptFinal: C_EncryptFinal,
-    C_DecryptInit: C_DecryptInit,
-    C_Decrypt: C_Decrypt,
-    C_DecryptUpdate: C_DecryptUpdate,
-    C_DecryptFinal: C_DecryptFinal,
-    C_DigestInit: C_DigestInit,
-    C_Digest: C_Digest,
-    C_DigestUpdate: C_DigestUpdate,
-    C_DigestKey: C_DigestKey,
-    C_DigestFinal: C_DigestFinal,
-    C_SignInit: C_SignInit,
-    C_Sign: C_Sign,
-    C_SignUpdate: C_SignUpdate,
-    C_SignFinal: C_SignFinal,
-    C_SignRecoverInit: C_SignRecoverInit,
-    C_SignRecover: C_SignRecover,
-    C_VerifyInit: C_VerifyInit,
-    C_Verify: C_Verify,
-    C_VerifyUpdate: C_VerifyUpdate,
-    C_VerifyFinal: C_VerifyFinal,
-    C_VerifyRecoverInit: C_VerifyRecoverInit,
-    C_VerifyRecover: C_VerifyRecover,
-    C_DigestEncryptUpdate: C_DigestEncryptUpdate,
-    C_DecryptDigestUpdate: C_DecryptDigestUpdate,
-    C_SignEncryptUpdate: C_SignEncryptUpdate,
-    C_DecryptVerifyUpdate: C_DecryptVerifyUpdate,
-    C_GenerateKey: C_GenerateKey,
-    C_GenerateKeyPair: C_GenerateKeyPair,
-    C_WrapKey: C_WrapKey,
-    C_UnwrapKey: C_UnwrapKey,
-    C_DeriveKey: C_DeriveKey,
-    C_SeedRandom: C_SeedRandom,
-    C_GenerateRandom: C_GenerateRandom,
-    C_GetFunctionStatus: C_GetFunctionStatus,
-    C_CancelFunction: C_CancelFunction,
-    C_WaitForSlotEvent: C_WaitForSlotEvent,
+pub const CK_FUNCTION_LIST = switch (builtin.target.os.tag) {
+    .windows => packed struct {
+        version: CK_VERSION,
+        C_Initialize: C_Initialize,
+        C_Finalize: C_Finalize,
+        C_GetInfo: C_GetInfo,
+        C_GetFunctionList: C_GetFunctionListInt,
+        C_GetSlotList: C_GetSlotList,
+        C_GetSlotInfo: C_GetSlotInfo,
+        C_GetTokenInfo: C_GetTokenInfo,
+        C_GetMechanismList: C_GetMechanismList,
+        C_GetMechanismInfo: C_GetMechanismInfo,
+        C_InitToken: C_InitToken,
+        C_InitPIN: C_InitPIN,
+        C_SetPIN: C_SetPIN,
+        C_OpenSession: C_OpenSession,
+        C_CloseSession: C_CloseSession,
+        C_CloseAllSessions: C_CloseAllSessions,
+        C_GetSessionInfo: C_GetSessionInfo,
+        C_GetOperationState: C_GetOperationState,
+        C_SetOperationState: C_SetOperationState,
+        C_Login: C_Login,
+        C_Logout: C_Logout,
+        C_CreateObject: C_CreateObject,
+        C_CopyObject: C_CopyObject,
+        C_DestroyObject: C_DestroyObject,
+        C_GetObjectSize: C_GetObjectSize,
+        C_GetAttributeValue: C_GetAttributeValue,
+        C_SetAttributeValue: C_SetAttributeValue,
+        C_FindObjectsInit: C_FindObjectsInit,
+        C_FindObjects: C_FindObjects,
+        C_FindObjectsFinal: C_FindObjectsFinal,
+        C_EncryptInit: C_EncryptInit,
+        C_Encrypt: C_Encrypt,
+        C_EncryptUpdate: C_EncryptUpdate,
+        C_EncryptFinal: C_EncryptFinal,
+        C_DecryptInit: C_DecryptInit,
+        C_Decrypt: C_Decrypt,
+        C_DecryptUpdate: C_DecryptUpdate,
+        C_DecryptFinal: C_DecryptFinal,
+        C_DigestInit: C_DigestInit,
+        C_Digest: C_Digest,
+        C_DigestUpdate: C_DigestUpdate,
+        C_DigestKey: C_DigestKey,
+        C_DigestFinal: C_DigestFinal,
+        C_SignInit: C_SignInit,
+        C_Sign: C_Sign,
+        C_SignUpdate: C_SignUpdate,
+        C_SignFinal: C_SignFinal,
+        C_SignRecoverInit: C_SignRecoverInit,
+        C_SignRecover: C_SignRecover,
+        C_VerifyInit: C_VerifyInit,
+        C_Verify: C_Verify,
+        C_VerifyUpdate: C_VerifyUpdate,
+        C_VerifyFinal: C_VerifyFinal,
+        C_VerifyRecoverInit: C_VerifyRecoverInit,
+        C_VerifyRecover: C_VerifyRecover,
+        C_DigestEncryptUpdate: C_DigestEncryptUpdate,
+        C_DecryptDigestUpdate: C_DecryptDigestUpdate,
+        C_SignEncryptUpdate: C_SignEncryptUpdate,
+        C_DecryptVerifyUpdate: C_DecryptVerifyUpdate,
+        C_GenerateKey: C_GenerateKey,
+        C_GenerateKeyPair: C_GenerateKeyPair,
+        C_WrapKey: C_WrapKey,
+        C_UnwrapKey: C_UnwrapKey,
+        C_DeriveKey: C_DeriveKey,
+        C_SeedRandom: C_SeedRandom,
+        C_GenerateRandom: C_GenerateRandom,
+        C_GetFunctionStatus: C_GetFunctionStatus,
+        C_CancelFunction: C_CancelFunction,
+        C_WaitForSlotEvent: C_WaitForSlotEvent,
+    },
+    else => extern struct {
+        version: CK_VERSION,
+        C_Initialize: C_Initialize,
+        C_Finalize: C_Finalize,
+        C_GetInfo: C_GetInfo,
+        C_GetFunctionList: C_GetFunctionListInt,
+        C_GetSlotList: C_GetSlotList,
+        C_GetSlotInfo: C_GetSlotInfo,
+        C_GetTokenInfo: C_GetTokenInfo,
+        C_GetMechanismList: C_GetMechanismList,
+        C_GetMechanismInfo: C_GetMechanismInfo,
+        C_InitToken: C_InitToken,
+        C_InitPIN: C_InitPIN,
+        C_SetPIN: C_SetPIN,
+        C_OpenSession: C_OpenSession,
+        C_CloseSession: C_CloseSession,
+        C_CloseAllSessions: C_CloseAllSessions,
+        C_GetSessionInfo: C_GetSessionInfo,
+        C_GetOperationState: C_GetOperationState,
+        C_SetOperationState: C_SetOperationState,
+        C_Login: C_Login,
+        C_Logout: C_Logout,
+        C_CreateObject: C_CreateObject,
+        C_CopyObject: C_CopyObject,
+        C_DestroyObject: C_DestroyObject,
+        C_GetObjectSize: C_GetObjectSize,
+        C_GetAttributeValue: C_GetAttributeValue,
+        C_SetAttributeValue: C_SetAttributeValue,
+        C_FindObjectsInit: C_FindObjectsInit,
+        C_FindObjects: C_FindObjects,
+        C_FindObjectsFinal: C_FindObjectsFinal,
+        C_EncryptInit: C_EncryptInit,
+        C_Encrypt: C_Encrypt,
+        C_EncryptUpdate: C_EncryptUpdate,
+        C_EncryptFinal: C_EncryptFinal,
+        C_DecryptInit: C_DecryptInit,
+        C_Decrypt: C_Decrypt,
+        C_DecryptUpdate: C_DecryptUpdate,
+        C_DecryptFinal: C_DecryptFinal,
+        C_DigestInit: C_DigestInit,
+        C_Digest: C_Digest,
+        C_DigestUpdate: C_DigestUpdate,
+        C_DigestKey: C_DigestKey,
+        C_DigestFinal: C_DigestFinal,
+        C_SignInit: C_SignInit,
+        C_Sign: C_Sign,
+        C_SignUpdate: C_SignUpdate,
+        C_SignFinal: C_SignFinal,
+        C_SignRecoverInit: C_SignRecoverInit,
+        C_SignRecover: C_SignRecover,
+        C_VerifyInit: C_VerifyInit,
+        C_Verify: C_Verify,
+        C_VerifyUpdate: C_VerifyUpdate,
+        C_VerifyFinal: C_VerifyFinal,
+        C_VerifyRecoverInit: C_VerifyRecoverInit,
+        C_VerifyRecover: C_VerifyRecover,
+        C_DigestEncryptUpdate: C_DigestEncryptUpdate,
+        C_DecryptDigestUpdate: C_DecryptDigestUpdate,
+        C_SignEncryptUpdate: C_SignEncryptUpdate,
+        C_DecryptVerifyUpdate: C_DecryptVerifyUpdate,
+        C_GenerateKey: C_GenerateKey,
+        C_GenerateKeyPair: C_GenerateKeyPair,
+        C_WrapKey: C_WrapKey,
+        C_UnwrapKey: C_UnwrapKey,
+        C_DeriveKey: C_DeriveKey,
+        C_SeedRandom: C_SeedRandom,
+        C_GenerateRandom: C_GenerateRandom,
+        C_GetFunctionStatus: C_GetFunctionStatus,
+        C_CancelFunction: C_CancelFunction,
+        C_WaitForSlotEvent: C_WaitForSlotEvent,
+    }
 };
 
-// TODO: remove those in favour of a single struct and group c functions at the top
+// TODO: combine in a single struct
 const SlotSess = struct { slot:c_ulong, sess:c_ulong };
 const CertSess = struct { cert:c_ulong, sess:c_ulong };
 
@@ -327,19 +429,19 @@ pub const Lib = struct {
         // collect slots
         const slots = self.getSlots(self.allocator, false) catch { return; };
         defer self.allocator.free(slots);
-        
+
         // open a session for each slot and collect certicates
         for (slots) |slot| {
             std.debug.print("   - slot {d}\n", .{slot});
 
-            const si = try self.allocator.create(CK_SLOT_INFO);
-            defer self.allocator.destroy(si);
-            try self.err(self.sym.C_GetSlotInfo.?(slot, si));
-            std.debug.print("     {s} {s}\n", .{si.manufacturerID, si.slotDescription});
-            const ti = try self.allocator.create(CK_TOKEN_INFO);
-            defer self.allocator.destroy(ti);
-            try self.err(self.sym.C_GetTokenInfo.?(slot, ti));
-            std.debug.print("     {s} {s}\n", .{ti.manufacturerID, ti.label});
+            // const si = try self.allocator.create(CK_SLOT_INFO);
+            // defer self.allocator.destroy(si);
+            // try self.err(self.sym.C_GetSlotInfo.?(slot, si));
+            // std.debug.print("     {s} {s}\n", .{si.manufacturerID, si.slotDescription});
+            // const ti = try self.allocator.create(CK_TOKEN_INFO);
+            // defer self.allocator.destroy(ti);
+            // try self.err(self.sym.C_GetTokenInfo.?(slot, ti));
+            // std.debug.print("     {s} {s}\n", .{ti.manufacturerID, ti.label});
 
             const session = self.openSession(slot) catch { continue; };
             const cka_class: c_ulong = 0x00000000;
@@ -367,26 +469,25 @@ pub const Lib = struct {
     pub fn getPrivateKey(self: *Lib, cert: c_ulong) !c_ulong {
         std.debug.print(" ? private\n", .{});
         const cka_id: c_ulong = 0x00000102;
-        var attr = [_]CK_ATTRIBUTE{
-            CK_ATTRIBUTE{
-                .type = cka_id,
-                .pValue = null,
-                .ulValueLen = 0,
-            }
+        var attr = CK_ATTRIBUTE{
+            .type = cka_id,
+            .pValue = null,
+            .ulValueLen = 0,
         };
 
         const session = try self.certSess(cert);
+
         try self.err(self.sym.C_GetAttributeValue.?(session, cert, &attr, 1));
-        const buf = try self.allocator.alloc(u8, attr[0].ulValueLen);
+        const buf = try self.allocator.alloc(u8, attr.ulValueLen);
         defer self.allocator.free(buf);
 
-        attr[0].pValue = buf.ptr;
+        attr.pValue = buf.ptr;
         try self.err(self.sym.C_GetAttributeValue.?(session, cert, &attr, 1));
 
         const cka_class: c_ulong = 0x00000000;
-        const cko_private_key: c_ulong = 0x00000003;
+        var cko_private_key: c_ulong = 0x00000003;
         var template = [_]CK_ATTRIBUTE{
-            CK_ATTRIBUTE{ .type = cka_class, .pValue = @constCast(&cko_private_key), .ulValueLen = @sizeOf(c_ulong) },
+            CK_ATTRIBUTE{ .type = cka_class, .pValue = @ptrCast(&cko_private_key), .ulValueLen = @sizeOf(c_ulong) },
             CK_ATTRIBUTE{ .type = cka_id, .pValue = buf.ptr, .ulValueLen = @intCast(buf.len) },
         };
         try self.err(self.sym.C_FindObjectsInit.?(session, &template, @intCast(template.len)));
@@ -402,20 +503,19 @@ pub const Lib = struct {
     }
 
     pub fn getCertificate(self: *Lib, allocator: std.mem.Allocator, cert: c_ulong) ![]const u8 {
-        std.debug.print(" ? certificate\n", .{});
+        std.debug.print(" ? certificate {d}\n", .{cert});
         const session = try self.certSess(cert);
         const cka_value: c_ulong = 0x00000011;
-        var attr = [_]CK_ATTRIBUTE{
-            CK_ATTRIBUTE{
-                .type = cka_value,
-                .pValue = null,
-                .ulValueLen = 0,
-            }
+        var attr = 
+        CK_ATTRIBUTE{
+            .type = cka_value,
+            .pValue = null,
+            .ulValueLen = 0,
         };
         try self.err(self.sym.C_GetAttributeValue.?(session, cert, &attr, 1));
-        const buf = try allocator.alloc(u8, attr[0].ulValueLen);
+        const buf = try allocator.alloc(u8, attr.ulValueLen);
         errdefer allocator.free(buf);
-        attr[0].pValue = buf.ptr;
+        attr.pValue = buf.ptr;
         try self.err(self.sym.C_GetAttributeValue.?(session, cert, &attr, 1));
         return buf[0..];
     }
