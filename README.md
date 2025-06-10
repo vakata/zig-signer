@@ -33,6 +33,7 @@ It should be possible to hardcode the lib that will be used in some sort of conf
  - [x] webui is functional
  - [x] web server is working
  - [x] custom lib location can be hardcoded using a file named lib in cwd
+ - [x] sessions are implemented using selectSigner and clearSigner - no PIN required for an active session
  - [ ] test with more pkcs11 providers
  - [ ] test on more machines
 
