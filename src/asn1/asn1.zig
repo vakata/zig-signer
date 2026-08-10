@@ -138,7 +138,7 @@ pub const Node = struct {
             .allocator = allocator,
             .tag = tag,
             .val = val,
-            .nodes = nodes orelse std.ArrayList(*Node).init(allocator),
+            .nodes = nodes orelse .empty,
             .imp = ._none,
             .own = false
         };
@@ -150,8 +150,8 @@ pub const Node = struct {
         tag: Tag,
         nodes: []const *Node
     ) !*Node {
-        var node_list = std.ArrayList(*Node).init(allocator);
-        try node_list.appendSlice(nodes);
+        var node_list: std.ArrayList(*Node) = .empty;
+        try node_list.appendSlice(allocator, nodes);
         return try Node.init(allocator, tag, "", node_list);
     }
     // used when encoding - the .val property is duplicated as needed and will be freed
@@ -171,8 +171,8 @@ pub const Node = struct {
         nodes: []const *Node
     ) !*Node {
         const new_tag = @intFromEnum(tag) | @intFromEnum(Tag.Type.constructed);
-        var node_list = std.ArrayList(*Node).init(allocator);
-        try node_list.appendSlice(nodes);
+        var node_list: std.ArrayList(*Node) = .empty;
+        try node_list.appendSlice(allocator, nodes);
         var node = try Node.init(allocator, @enumFromInt(new_tag), "", node_list);
         node.imp = imp;
         return node;
@@ -199,7 +199,7 @@ pub const Node = struct {
         for (self.nodes.items) |node| {
             node.deinit();
         }
-        self.nodes.deinit();
+        self.nodes.deinit(self.allocator);
         self.allocator.destroy(self);
     }
     pub fn value(self: *Node) !Val {
@@ -214,17 +214,20 @@ pub const Node = struct {
 };
 
 pub fn decode(allocator: std.mem.Allocator, buf: []const u8) !std.ArrayList(*Node) {
-    var stream = std.io.fixedBufferStream(buf);
-    var reader = stream.reader();
-    var nodes = std.ArrayList(*Node).init(allocator);
-    while (stream.pos < stream.buffer.len) {
+    var nodes: std.ArrayList(*Node) = .empty;
+    var pos: usize = 0;
+    while (pos < buf.len) {
         var tmp: u8 = undefined;
 
         // parse tag
-        const tag = reader.readByte() catch { break; };
+        const tag = buf[pos];
+        pos += 1;
+        if (pos >= buf.len) break;
         if ((tag & 31) == 31) { // long tags are not supported but at least parse them
             while (true) {
-                tmp = reader.readByte() catch { break; };
+                tmp = buf[pos];
+                pos += 1;
+                if (pos >= buf.len) break;
                 if (tmp & 128 == 0) {
                     break;
                 }
@@ -236,32 +239,40 @@ pub fn decode(allocator: std.mem.Allocator, buf: []const u8) !std.ArrayList(*Nod
         var len: u64 = 0;
 
         // parse length
-        tmp = reader.readByte() catch { break; };
+        tmp = buf[pos];
+        pos += 1;
+        if (pos >= buf.len) break;
         if (tmp == 128) {
-            beg = stream.pos;
+            beg = pos;
             while (true) {
-                tmp = reader.readByte() catch { break; };
+                tmp = buf[pos];
+                pos += 1;
+                if (pos >= buf.len) break;
                 if (tmp == 0) {
-                    tmp = reader.readByte() catch { break; };
+                    tmp = buf[pos];
+                    pos += 1;
+                    if (pos >= buf.len) break;
                     if (tmp == 0) {
                         break;
                     }
                 }
             }
-            end = stream.pos - 2;
-            len = stream.pos - beg;
-            stream.pos = beg;
+            end = pos - 2;
+            len = pos - beg;
+            pos = beg;
         } else if (tmp & 128 == 128) {
             for (0..(tmp & 127)) |_| {
-                tmp = reader.readByte() catch { break; };
+                tmp = buf[pos];
+                pos += 1;
+                if (pos >= buf.len) break;
                 len <<= 8;
                 len |= tmp;
             }
-            beg = stream.pos;
+            beg = pos;
             end = beg + len;
         } else {
             len = tmp;
-            beg = stream.pos;
+            beg = pos;
             end = beg + len;
         }
 
@@ -270,27 +281,27 @@ pub fn decode(allocator: std.mem.Allocator, buf: []const u8) !std.ArrayList(*Nod
         if (node.tag.isConstructed()) {
             node.nodes = try decode(allocator, buf[beg..end]);
         }
-        try nodes.append(node);
-        stream.pos = beg + len;
+        try nodes.append(allocator, node);
+        pos = beg + len;
     }
     return nodes;
 }
 
 pub fn encode(allocator: std.mem.Allocator, node: *Node) ![]const u8 {
-    var buf = std.ArrayList(u8).init(allocator);
-    defer buf.deinit();
+    var buf: std.ArrayList(u8) = .empty;
+    defer buf.deinit(allocator);
     var len: u64 = 0;
     if (node.tag.isConstructed() and node.nodes.items.len > 0) {
-        var children = std.ArrayList([]const u8).init(allocator);
+        var children: std.ArrayList([]const u8) = .empty;
         defer {
             for (children.items) |c| {
                 allocator.free(c);
             }
-            children.deinit();
+            children.deinit(allocator);
         }
         for (node.nodes.items) |n| {
             const val = try encode(allocator, n);
-            try children.append(val);
+            try children.append(allocator, val);
         }
         if (node.tag == .set or node.imp == .set) {
             std.mem.sort(
@@ -303,18 +314,18 @@ pub fn encode(allocator: std.mem.Allocator, node: *Node) ![]const u8 {
             );
         }
         for (children.items) |c| {
-            try buf.appendSlice(c);
+            try buf.appendSlice(allocator, c);
             len = len + c.len;
         }
     } else {
-        try buf.appendSlice(node.val);
+        try buf.appendSlice(allocator, node.val);
         len = node.val.len;
     }
     const clen = try encodeLength(allocator, len);
     defer allocator.free(clen);
-    try buf.insertSlice(0, clen);
-    try buf.insert(0, @intFromEnum(node.tag));
-    return try buf.toOwnedSlice();
+    try buf.insertSlice(allocator, 0, clen);
+    try buf.insert(allocator, 0, @intFromEnum(node.tag));
+    return try buf.toOwnedSlice(allocator);
 }
 
 pub fn encodeLength(allocator: std.mem.Allocator, len: u64) ![]u8 {
@@ -341,12 +352,12 @@ pub fn encodeLength(allocator: std.mem.Allocator, len: u64) ![]u8 {
 pub fn decodeValue(allocator: std.mem.Allocator, tag: Tag, val: []const u8) !Val {
     switch (tag) {
         .object_identifier => {
-            var list = std.ArrayList(u64).init(allocator);
-            defer list.deinit();
+            var list: std.ArrayList(u64) = .empty;
+            defer list.deinit(allocator);
 
             const first = val[0];
-            try list.append(@intCast(first / 40));
-            try list.append(@intCast(first % 40));
+            try list.append(allocator, @intCast(first / 40));
+            try list.append(allocator, @intCast(first % 40));
 
             var i: usize = 1;
             while (i < val.len) {
@@ -358,16 +369,18 @@ pub fn decodeValue(allocator: std.mem.Allocator, tag: Tag, val: []const u8) !Val
                     i += 1;
                     if ((byte & 0x80) == 0) break;
                 }
-                try list.append(v);
+                try list.append(allocator, v);
             }
             var buffer: [128]u8 = undefined;
-            var stream = std.io.fixedBufferStream(&buffer);
-            var writer = stream.writer();
+            var writer: std.Io.Writer = .fixed(&buffer);
             try writer.print("{}", .{list.items[0]});
             for (list.items[1..]) |item| {
                 try writer.print(".{}", .{item});
             }
-            return .{ .string = try allocator.dupe(u8, stream.getWritten()) };
+            const string = try allocator.dupe(u8, buffer[0..writer.end]);
+            return .{
+                .string = string,
+            };
         },
         .integer => {
             var start: usize = 0;
@@ -405,19 +418,19 @@ pub fn encodeValue(allocator: std.mem.Allocator, tag: Tag, val: Val) ![]const u8
             switch (val) {
                 .string => |s| {
                     var buf = std.mem.splitScalar(u8, s, '.');
-                    var num = std.ArrayList(u64).init(allocator);
-                    defer num.deinit();
-                    var enc = std.ArrayList(u8).init(allocator);
-                    defer enc.deinit();
+                    var num: std.ArrayList(u64) = .empty;
+                    defer num.deinit(allocator);
+                    var enc: std.ArrayList(u8) = .empty;
+                    defer enc.deinit(allocator);
                     while (buf.next()) |i| {
-                        try num.append(try std.fmt.parseInt(u64, i, 10));
+                        try num.append(allocator, try std.fmt.parseInt(u64, i, 10));
                     }
-                    try enc.append(@intCast(40 * num.items[0] + num.items[1]));
+                    try enc.append(allocator, @intCast(40 * num.items[0] + num.items[1]));
                     for (num.items[2..]) |n| {
-                        var tmp = std.ArrayList(u8).init(allocator);
-                        defer tmp.deinit();
+                        var tmp: std.ArrayList(u8) = .empty;
+                        defer tmp.deinit(allocator);
                         if (n == 0) {
-                            try tmp.append(0);
+                            try tmp.append(allocator, 0);
                         } else {
                             var c = n;
                             while (c > 0) {
@@ -425,13 +438,13 @@ pub fn encodeValue(allocator: std.mem.Allocator, tag: Tag, val: Val) ![]const u8
                                 if (c != n) {
                                     t |= 0x80;
                                 }
-                                try tmp.insert(0, t);
+                                try tmp.insert(allocator, 0, t);
                                 c >>= 7;
                             }
                         }
-                        try enc.appendSlice(tmp.items);
+                        try enc.appendSlice(allocator, tmp.items);
                     }
-                    return try enc.toOwnedSlice();
+                    return try enc.toOwnedSlice(allocator);
                 },
                 else => return error.InvalidType,
             }
@@ -448,10 +461,10 @@ pub fn encodeValue(allocator: std.mem.Allocator, tag: Tag, val: Val) ![]const u8
                     if (i > 0 and tmp[i] & 0x80 != 0) {
                         i -= 1;
                     }
-                    var enc = std.ArrayList(u8).init(allocator);
-                    defer enc.deinit();
-                    try enc.appendSlice(tmp[i..]);
-                    return enc.toOwnedSlice();
+                    var enc: std.ArrayList(u8) = .empty;
+                    defer enc.deinit(allocator);
+                    try enc.appendSlice(allocator, tmp[i..]);
+                    return enc.toOwnedSlice(allocator);
                 },
                 .string => |s| return allocator.dupe(u8, s),
                 else => return error.InvalidType,

@@ -87,80 +87,80 @@ pub const CK_MECHANISM_INFO = switch (builtin.target.os.tag) {
         flags: c_ulong,
     }
 };
-pub const CK_NOTIFY = ?*const fn (c_ulong, c_ulong, ?*anyopaque) callconv(.C) c_ulong;
+pub const CK_NOTIFY = ?*const fn (c_ulong, c_ulong, ?*anyopaque) callconv(.c) c_ulong;
 
 const CK_FUNCTION_LIST_PTR = *CK_FUNCTION_LIST;
 const CK_FUNCTION_LIST_PTR_PTR = *CK_FUNCTION_LIST_PTR;
 
-const C_Initialize = ?*const fn (?*anyopaque) callconv(.C) c_ulong;
-const C_Finalize = ?*const fn (?*anyopaque) callconv(.C) c_ulong;
-const C_GetInfo = ?*const fn (*CK_INFO) callconv(.C) c_ulong;
-const C_GetFunctionList = ?*const fn (CK_FUNCTION_LIST_PTR_PTR) callconv(.C) c_ulong;
-const C_GetFunctionListInt = ?*const fn (?*anyopaque) callconv(.C) c_ulong;
-const C_GetSlotList = ?*const fn (u8, [*c]c_ulong, *c_ulong) callconv(.C) c_ulong;
-const C_GetSlotInfo = ?*const fn (c_ulong, *CK_SLOT_INFO) callconv(.C) c_ulong;
-const C_GetTokenInfo = ?*const fn (c_ulong, *CK_TOKEN_INFO) callconv(.C) c_ulong;
-const C_GetMechanismList = ?*const fn (c_ulong, [*c]c_ulong, *c_ulong) callconv(.C) c_ulong;
-const C_GetMechanismInfo = ?*const fn (c_ulong, c_ulong, *CK_MECHANISM_INFO) callconv(.C) c_ulong;
-const C_InitToken = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8) callconv(.C) c_ulong;
-const C_InitPIN = ?*const fn (c_ulong, [*c]u8, c_ulong) callconv(.C) c_ulong;
-const C_SetPIN = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, c_ulong) callconv(.C) c_ulong;
-const C_OpenSession = ?*const fn (c_ulong, c_ulong, ?*anyopaque, CK_NOTIFY, *c_ulong) callconv(.C) c_ulong;
-const C_CloseSession = ?*const fn (c_ulong) callconv(.C) c_ulong;
-const C_CloseAllSessions = ?*const fn (c_ulong) callconv(.C) c_ulong;
-const C_GetSessionInfo = ?*const fn (c_ulong, *CK_SESSION_INFO) callconv(.C) c_ulong;
-const C_GetOperationState = ?*const fn (c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_SetOperationState = ?*const fn (c_ulong, [*c]u8, c_ulong, c_ulong, c_ulong) callconv(.C) c_ulong;
-const C_Login = ?*const fn (c_ulong, c_ulong, [*c]u8, c_ulong) callconv(.C) c_ulong;
-const C_Logout = ?*const fn (c_ulong) callconv(.C) c_ulong;
-const C_CreateObject = ?*const fn (c_ulong, [*c]CK_ATTRIBUTE, c_ulong, [*c]c_ulong) callconv(.C) c_ulong;
-const C_CopyObject = ?*const fn (c_ulong, c_ulong, [*c]CK_ATTRIBUTE, c_ulong, [*c]c_ulong) callconv(.C) c_ulong;
-const C_DestroyObject = ?*const fn (c_ulong, c_ulong) callconv(.C) c_ulong;
-const C_GetObjectSize = ?*const fn (c_ulong, c_ulong, [*c]c_ulong) callconv(.C) c_ulong;
-const C_GetAttributeValue = ?*const fn (c_ulong, c_ulong, [*c]CK_ATTRIBUTE, c_ulong) callconv(.C) c_ulong;
-const C_SetAttributeValue = ?*const fn (c_ulong, c_ulong, [*c]CK_ATTRIBUTE, c_ulong) callconv(.C) c_ulong;
-const C_FindObjectsInit = ?*const fn (c_ulong, [*c]CK_ATTRIBUTE, c_ulong) callconv(.C) c_ulong;
-const C_FindObjects = ?*const fn (c_ulong, [*c]c_ulong, c_ulong, [*c]c_ulong) callconv(.C) c_ulong;
-const C_FindObjectsFinal = ?*const fn (c_ulong) callconv(.C) c_ulong;
-const C_EncryptInit = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong) callconv(.C) c_ulong;
-const C_Encrypt = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_EncryptUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_EncryptFinal = ?*const fn (c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_DecryptInit = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong) callconv(.C) c_ulong;
-const C_Decrypt = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_DecryptUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_DecryptFinal = ?*const fn (c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_DigestInit = ?*const fn (c_ulong, [*c]CK_MECHANISM) callconv(.C) c_ulong;
-const C_Digest = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_DigestUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong) callconv(.C) c_ulong;
-const C_DigestKey = ?*const fn (c_ulong, c_ulong) callconv(.C) c_ulong;
-const C_DigestFinal = ?*const fn (c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_SignInit = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong) callconv(.C) c_ulong;
-const C_Sign = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_SignUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong) callconv(.C) c_ulong;
-const C_SignFinal = ?*const fn (c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_SignRecoverInit = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong) callconv(.C) c_ulong;
-const C_SignRecover = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_VerifyInit = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong) callconv(.C) c_ulong;
-const C_Verify = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, c_ulong) callconv(.C) c_ulong;
-const C_VerifyUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong) callconv(.C) c_ulong;
-const C_VerifyFinal = ?*const fn (c_ulong, [*c]u8, c_ulong) callconv(.C) c_ulong;
-const C_VerifyRecoverInit = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong) callconv(.C) c_ulong;
-const C_VerifyRecover = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_DigestEncryptUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_DecryptDigestUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_SignEncryptUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_DecryptVerifyUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_GenerateKey = ?*const fn (c_ulong, [*c]CK_MECHANISM, [*]CK_ATTRIBUTE, c_ulong, [*c]c_ulong) callconv(.C) c_ulong;
-const C_GenerateKeyPair = ?*const fn (c_ulong, [*c]CK_MECHANISM, [*]CK_ATTRIBUTE, c_ulong, [*]CK_ATTRIBUTE, c_ulong, [*c]c_ulong, [*c]c_ulong) callconv(.C) c_ulong;
-const C_WrapKey = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong, c_ulong, [*c]u8, [*c]c_ulong) callconv(.C) c_ulong;
-const C_UnwrapKey = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong, [*c]u8, c_ulong, [*]CK_ATTRIBUTE, c_ulong, [*c]c_ulong) callconv(.C) c_ulong;
-const C_DeriveKey = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong, [*]CK_ATTRIBUTE, c_ulong, [*c]c_ulong) callconv(.C) c_ulong;
-const C_SeedRandom = ?*const fn (c_ulong, [*c]u8, c_ulong) callconv(.C) c_ulong;
-const C_GenerateRandom = ?*const fn (c_ulong, [*c]u8, c_ulong) callconv(.C) c_ulong;
-const C_GetFunctionStatus = ?*const fn (c_ulong) callconv(.C) c_ulong;
-const C_CancelFunction = ?*const fn (c_ulong) callconv(.C) c_ulong;
-const C_WaitForSlotEvent = ?*const fn (c_ulong, [*c]c_ulong, ?*anyopaque) callconv(.C) c_ulong;
+const C_Initialize = ?*const fn (?*anyopaque) callconv(.c) c_ulong;
+const C_Finalize = ?*const fn (?*anyopaque) callconv(.c) c_ulong;
+const C_GetInfo = ?*const fn (*CK_INFO) callconv(.c) c_ulong;
+const C_GetFunctionList = ?*const fn (CK_FUNCTION_LIST_PTR_PTR) callconv(.c) c_ulong;
+const C_GetFunctionListInt = ?*const fn (?*anyopaque) callconv(.c) c_ulong;
+const C_GetSlotList = ?*const fn (u8, [*c]c_ulong, *c_ulong) callconv(.c) c_ulong;
+const C_GetSlotInfo = ?*const fn (c_ulong, *CK_SLOT_INFO) callconv(.c) c_ulong;
+const C_GetTokenInfo = ?*const fn (c_ulong, *CK_TOKEN_INFO) callconv(.c) c_ulong;
+const C_GetMechanismList = ?*const fn (c_ulong, [*c]c_ulong, *c_ulong) callconv(.c) c_ulong;
+const C_GetMechanismInfo = ?*const fn (c_ulong, c_ulong, *CK_MECHANISM_INFO) callconv(.c) c_ulong;
+const C_InitToken = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8) callconv(.c) c_ulong;
+const C_InitPIN = ?*const fn (c_ulong, [*c]u8, c_ulong) callconv(.c) c_ulong;
+const C_SetPIN = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, c_ulong) callconv(.c) c_ulong;
+const C_OpenSession = ?*const fn (c_ulong, c_ulong, ?*anyopaque, CK_NOTIFY, *c_ulong) callconv(.c) c_ulong;
+const C_CloseSession = ?*const fn (c_ulong) callconv(.c) c_ulong;
+const C_CloseAllSessions = ?*const fn (c_ulong) callconv(.c) c_ulong;
+const C_GetSessionInfo = ?*const fn (c_ulong, *CK_SESSION_INFO) callconv(.c) c_ulong;
+const C_GetOperationState = ?*const fn (c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_SetOperationState = ?*const fn (c_ulong, [*c]u8, c_ulong, c_ulong, c_ulong) callconv(.c) c_ulong;
+const C_Login = ?*const fn (c_ulong, c_ulong, [*c]u8, c_ulong) callconv(.c) c_ulong;
+const C_Logout = ?*const fn (c_ulong) callconv(.c) c_ulong;
+const C_CreateObject = ?*const fn (c_ulong, [*c]CK_ATTRIBUTE, c_ulong, [*c]c_ulong) callconv(.c) c_ulong;
+const C_CopyObject = ?*const fn (c_ulong, c_ulong, [*c]CK_ATTRIBUTE, c_ulong, [*c]c_ulong) callconv(.c) c_ulong;
+const C_DestroyObject = ?*const fn (c_ulong, c_ulong) callconv(.c) c_ulong;
+const C_GetObjectSize = ?*const fn (c_ulong, c_ulong, [*c]c_ulong) callconv(.c) c_ulong;
+const C_GetAttributeValue = ?*const fn (c_ulong, c_ulong, [*c]CK_ATTRIBUTE, c_ulong) callconv(.c) c_ulong;
+const C_SetAttributeValue = ?*const fn (c_ulong, c_ulong, [*c]CK_ATTRIBUTE, c_ulong) callconv(.c) c_ulong;
+const C_FindObjectsInit = ?*const fn (c_ulong, [*c]CK_ATTRIBUTE, c_ulong) callconv(.c) c_ulong;
+const C_FindObjects = ?*const fn (c_ulong, [*c]c_ulong, c_ulong, [*c]c_ulong) callconv(.c) c_ulong;
+const C_FindObjectsFinal = ?*const fn (c_ulong) callconv(.c) c_ulong;
+const C_EncryptInit = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong) callconv(.c) c_ulong;
+const C_Encrypt = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_EncryptUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_EncryptFinal = ?*const fn (c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_DecryptInit = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong) callconv(.c) c_ulong;
+const C_Decrypt = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_DecryptUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_DecryptFinal = ?*const fn (c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_DigestInit = ?*const fn (c_ulong, [*c]CK_MECHANISM) callconv(.c) c_ulong;
+const C_Digest = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_DigestUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong) callconv(.c) c_ulong;
+const C_DigestKey = ?*const fn (c_ulong, c_ulong) callconv(.c) c_ulong;
+const C_DigestFinal = ?*const fn (c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_SignInit = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong) callconv(.c) c_ulong;
+const C_Sign = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_SignUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong) callconv(.c) c_ulong;
+const C_SignFinal = ?*const fn (c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_SignRecoverInit = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong) callconv(.c) c_ulong;
+const C_SignRecover = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_VerifyInit = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong) callconv(.c) c_ulong;
+const C_Verify = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, c_ulong) callconv(.c) c_ulong;
+const C_VerifyUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong) callconv(.c) c_ulong;
+const C_VerifyFinal = ?*const fn (c_ulong, [*c]u8, c_ulong) callconv(.c) c_ulong;
+const C_VerifyRecoverInit = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong) callconv(.c) c_ulong;
+const C_VerifyRecover = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_DigestEncryptUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_DecryptDigestUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_SignEncryptUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_DecryptVerifyUpdate = ?*const fn (c_ulong, [*c]u8, c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_GenerateKey = ?*const fn (c_ulong, [*c]CK_MECHANISM, [*]CK_ATTRIBUTE, c_ulong, [*c]c_ulong) callconv(.c) c_ulong;
+const C_GenerateKeyPair = ?*const fn (c_ulong, [*c]CK_MECHANISM, [*]CK_ATTRIBUTE, c_ulong, [*]CK_ATTRIBUTE, c_ulong, [*c]c_ulong, [*c]c_ulong) callconv(.c) c_ulong;
+const C_WrapKey = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong, c_ulong, [*c]u8, [*c]c_ulong) callconv(.c) c_ulong;
+const C_UnwrapKey = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong, [*c]u8, c_ulong, [*]CK_ATTRIBUTE, c_ulong, [*c]c_ulong) callconv(.c) c_ulong;
+const C_DeriveKey = ?*const fn (c_ulong, [*c]CK_MECHANISM, c_ulong, [*]CK_ATTRIBUTE, c_ulong, [*c]c_ulong) callconv(.c) c_ulong;
+const C_SeedRandom = ?*const fn (c_ulong, [*c]u8, c_ulong) callconv(.c) c_ulong;
+const C_GenerateRandom = ?*const fn (c_ulong, [*c]u8, c_ulong) callconv(.c) c_ulong;
+const C_GetFunctionStatus = ?*const fn (c_ulong) callconv(.c) c_ulong;
+const C_CancelFunction = ?*const fn (c_ulong) callconv(.c) c_ulong;
+const C_WaitForSlotEvent = ?*const fn (c_ulong, [*c]c_ulong, ?*anyopaque) callconv(.c) c_ulong;
 
 pub const CK_FUNCTION_LIST = switch (builtin.target.os.tag) {
     .windows => packed struct {
@@ -328,9 +328,7 @@ pub const Lib = struct {
         var sym: CK_FUNCTION_LIST_PTR = undefined;
         try self.err(list.?(&sym));
 
-        const sessions = std.ArrayList(SlotSess).init(allocator);
-        const certificates = std.ArrayList(CertSess).init(allocator);
-        self.* = .{ .allocator = allocator, .lib = lib, .sym = sym, .sessions = sessions, .certificates = certificates };
+        self.* = .{ .allocator = allocator, .lib = lib, .sym = sym, .sessions = .empty, .certificates = .empty };
         try self.initialize();
         return self;
     }
@@ -338,8 +336,8 @@ pub const Lib = struct {
         for (self.sessions.items[0..]) |entry| {
             self.closeSession(entry.sess) catch {};
         }
-        self.sessions.deinit();
-        self.certificates.deinit();
+        self.sessions.deinit(self.allocator);
+        self.certificates.deinit(self.allocator);
         self.finalize() catch {};
         self.lib.close();
         self.allocator.destroy(self);
@@ -421,7 +419,7 @@ pub const Lib = struct {
         var s: c_ulong = 0;
         std.debug.print(" ? open session with slot {d} and flags {d}\n", .{slot_id, c_flags});
         try self.err(self.sym.C_OpenSession.?(slot_id, c_flags, null, null, &s));
-        try self.sessions.append(.{ .slot = slot_id, .sess = s });
+        try self.sessions.append(self.allocator, .{ .slot = slot_id, .sess = s });
         return s;
     }
     pub fn findCertificates(self: *Lib) !void {
@@ -458,7 +456,7 @@ pub const Lib = struct {
                 const rv = self.sym.C_FindObjects.?(session, &obj, 1, &count);
                 if (rv != 0 or count == 0) break;
                 std.debug.print("   - found {d}\n", .{obj});
-                try self.certificates.append(.{ .cert = obj, .sess = session });
+                try self.certificates.append(self.allocator, .{ .cert = obj, .sess = session });
             }
         }
     }
@@ -553,13 +551,13 @@ pub const Lib = struct {
         attr[0].pValue = @constCast(&buf);
         try self.err(self.sym.C_GetAttributeValue.?(session, privkey, &attr, 1));
 
-        var preferred = std.ArrayList(c_ulong).init(allocator);
-        defer preferred.deinit();
+        var preferred: std.ArrayList(c_ulong) = .empty;
+        defer preferred.deinit(allocator);
         if (buf == 0) {
-            try preferred.append(0x00000001); // rsa
+            try preferred.append(allocator, 0x00000001); // rsa
         }
         if (buf == 3) {
-            try preferred.append(0x00001041); // ecdsa
+            try preferred.append(allocator, 0x00001041); // ecdsa
         }
         var selected: c_ulong = 0;
         outer: for (preferred.items[0..]) |preferred_mech| {

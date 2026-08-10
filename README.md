@@ -23,21 +23,18 @@ In order to achieve this a local web server is started. The server processes inc
 
 Under the hood once the sign request comes in some common pkcs11 lib locations are scanned and each available lib is instantiated. All available signing certificates are gathered and presented to the user. The input is signed using the chosen certificate and PIN and the signed output is returned to the caller. It should be possible to sign raw data, sha256 hashes of data or xml documents and the output is either a pkcs7 structure or a signed XML (using xmldsig) depending on the input.
 
-It should be possible to hardcode the lib that will be used in some sort of config. Additionaly there should be a way to sign a lot of separate items without asking for a PIN every time.
-
 ***Progress:***
  - [x] pkcs11 is ready
  - [x] asn1 encoder/decoder works for the purposes of this project
  - [x] pkcs7 generation is ready
  - [x] xmldsig generation is ready
- - [x] webui is functional
+ - [ ] certificate and pin GUI (webui was removed, now the terminal is used temporarily)
  - [x] web server is working
  - [x] custom lib location can be hardcoded using a file named lib in cwd
  - [x] sessions are implemented using selectSigner and clearSigner - no PIN required for an active session
- - [ ] test with more pkcs11 providers
- - [ ] test on more machines
 
 ***Caveats:***
- - webUI is used for the UI for simplicity - future versions may move to nuklear or imgui
+ - the terimnal is used for the UI for simplicity (was webui) - future versions may move to nappgui, nuklear or imgui
  - xml c14n algos are not implemented properly - they work for small documents with no extra namespaces
  - I have no experience with low level languages - this experiment is likely full of anti-patterns and buggy code
+ - I was able to find a few friends and machines - but testing is still limited in terms of OSs and providers

@@ -62,10 +62,10 @@ pub const P7S = struct {
         });
         var algo = p7s.child(1).child(0).child(4).child(0).child(4);
         if (cert.isRSA()) {
-            try algo.nodes.append(try Node.fromValue(allocator, .object_identifier, .{ .string = "1.2.840.113549.1.1.11" }));
-            try algo.nodes.append(try Node.fromValue(allocator, .null, .{ .null = {} }));
+            try algo.nodes.append(allocator, try Node.fromValue(allocator, .object_identifier, .{ .string = "1.2.840.113549.1.1.11" }));
+            try algo.nodes.append(allocator, try Node.fromValue(allocator, .null, .{ .null = {} }));
         } else {
-            try algo.nodes.append(try Node.fromValue(allocator, .object_identifier, .{ .string = "1.2.840.10045.4.3.2" }));
+            try algo.nodes.append(allocator, try Node.fromValue(allocator, .object_identifier, .{ .string = "1.2.840.10045.4.3.2" }));
         }
         self.* = .{
             .allocator = allocator,
@@ -79,6 +79,7 @@ pub const P7S = struct {
     }
     pub fn timestamp(self: *P7S, datetime: []const u8) !void {
         try self.node.child(1).child(0).child(4).child(0).child(3).nodes.append(
+            self.allocator,
             try Node.fromChildren(self.allocator, .sequence, &[_]*Node{ // attribute 2 - signing time
                 try Node.fromValue(self.allocator, .object_identifier, .{ .string = "1.2.840.113549.1.9.5" }),
                 try Node.fromChildren(self.allocator, .set, &[_]*Node{
@@ -103,6 +104,7 @@ pub const P7S = struct {
     }
     pub fn sign(self: *P7S, signature: []const u8) !void {
         try self.node.child(1).child(0).child(4).child(0).nodes.append(
+            self.allocator,
             try Node.fromValue(self.allocator, .octet_string, .{ .string = signature })
         );
     }

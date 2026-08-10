@@ -16,14 +16,6 @@ pub fn build(b: *std.Build) void {
         .root_module = exe_mod,
     });
 
-    const zig_webui = b.dependency("zig_webui", .{
-        .target = target,
-        .optimize = std.builtin.OptimizeMode.ReleaseFast,
-        .enable_tls = false, // whether enable tls support
-        .is_static = true, // whether static link
-    });
-    exe.root_module.addImport("webui", zig_webui.module("webui"));
-
     const xml = b.dependency("xml", .{
         .target = target,
         .optimize = std.builtin.OptimizeMode.ReleaseFast,
