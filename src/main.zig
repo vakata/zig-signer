@@ -491,7 +491,7 @@ fn httpSelect(app: *App, _: *httpz.Request, res: *httpz.Response) !void {
         s.* = letters[index];
     }
     scan(app.allocator, app.io) catch {};
-    pick(app.allocator, app.io) catch {};
+    try pick(app.allocator, app.io);
     const signature = try signData(res.arena, "SESSION");
     res.header("Access-Control-Allow-Origin", "*");
     try res.json(.{
@@ -528,7 +528,7 @@ fn httpSign(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
             } else {
                 std.debug.print(" - starting new session ...\n", .{});
                 scan(app.allocator, app.io) catch {};
-                pick(app.allocator, app.io) catch {};
+                try pick(app.allocator, app.io);
             }
             if (std.mem.eql(u8, "xmldsig", signatureType.items)) {
                 // decode the input
