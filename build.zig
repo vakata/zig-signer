@@ -57,20 +57,36 @@ fn addPicker(
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
 ) *std.Build.Step.Compile {
+    // NAppGUI's bundled Windows libraries were built with Visual Studio 2022.
+    // Force the picker to MSVC while preserving the selected CPU and OS.
+    var picker_target = target;
+    if (target.result.os.tag == .windows) {
+        var picker_query = target.query;
+        picker_query.abi = .msvc;
+        picker_target = b.resolveTargetQuery(picker_query);
+    }
+
     const picker = b.addExecutable(.{
         .name = "signer-picker",
         .root_module = b.createModule(.{
             .root_source_file = null,
-            .target = target,
+            .target = picker_target,
             .optimize = optimize,
             .link_libc = true,
         }),
     });
-    const picker_c_flags: []const []const u8 = switch (optimize) {
-        .Debug => &.{"-DCMAKE_DEBUG"},
-        .ReleaseSafe => &.{"-DCMAKE_RELEASEWITHASSERT"},
-        .ReleaseFast, .ReleaseSmall => &.{"-DCMAKE_RELEASE"},
-    };
+    const picker_c_flags: []const []const u8 = if (picker_target.result.os.tag == .windows)
+        switch (optimize) {
+            .Debug => &.{ "-DCMAKE_DEBUG", "-D_WINDOWS", "-D_M_AMD64", "-D_MSC_VER=1930" },
+            .ReleaseSafe => &.{ "-DCMAKE_RELEASEWITHASSERT", "-D_WINDOWS", "-D_M_AMD64", "-D_MSC_VER=1930" },
+            .ReleaseFast, .ReleaseSmall => &.{ "-DCMAKE_RELEASE", "-D_WINDOWS", "-D_M_AMD64", "-D_MSC_VER=1930" },
+        }
+    else
+        switch (optimize) {
+            .Debug => &.{"-DCMAKE_DEBUG"},
+            .ReleaseSafe => &.{"-DCMAKE_RELEASEWITHASSERT"},
+            .ReleaseFast, .ReleaseSmall => &.{"-DCMAKE_RELEASE"},
+        };
     picker.root_module.addCSourceFile(.{
         .file = b.path("src/gui/picker.c"),
         .flags = picker_c_flags,
@@ -79,9 +95,9 @@ fn addPicker(
     inline for (.{ "sewer", "osbs", "core", "geom2d", "draw2d", "gui", "osapp" }) |include|
         picker.root_module.addIncludePath(b.path("vendor/nappgui/inc/" ++ include));
 
-    const lib_dir = nappguiLibraryDir(b, target.result, optimize);
-    const extension = if (target.result.os.tag == .windows) ".lib" else ".a";
-    const prefix = if (target.result.os.tag == .windows) "" else "lib";
+    const lib_dir = nappguiLibraryDir(b, picker_target.result, optimize);
+    const extension = if (picker_target.result.os.tag == .windows) ".lib" else ".a";
+    const prefix = if (picker_target.result.os.tag == .windows) "" else "lib";
 
     // Static-library order follows the dependency chain from osapp to sewer.
     inline for (.{ "osapp", "gui", "osgui", "draw2d", "geom2d", "core", "osbs", "sewer" }) |lib| {
@@ -89,7 +105,7 @@ fn addPicker(
         picker.root_module.addObjectFile(b.path(b.pathJoin(&.{ "vendor/nappgui/lib", lib_dir, filename })));
     }
 
-    switch (target.result.os.tag) {
+    switch (picker_target.result.os.tag) {
         .linux => {
             picker.root_module.link_libcpp = true;
             picker.root_module.linkSystemLibrary("gtk-3", .{});
@@ -109,11 +125,20 @@ fn addPicker(
             picker.root_module.linkSystemLibrary("m", .{});
         },
         .macos => {
+            picker.root_module.addCSourceFile(.{
+                .file = b.path("src/gui/macos_activate.m"),
+                .flags = picker_c_flags,
+            });
             picker.root_module.linkFramework("Cocoa", .{});
             picker.root_module.linkFramework("UniformTypeIdentifiers", .{});
         },
         .windows => {
             picker.subsystem = .windows;
+            picker.root_module.linkSystemLibrary("ws2_32", .{});
+            picker.root_module.linkSystemLibrary("gdiplus", .{});
+            picker.root_module.linkSystemLibrary("shlwapi", .{});
+            picker.root_module.linkSystemLibrary("comctl32", .{});
+            picker.root_module.linkSystemLibrary("uxtheme", .{});
         },
         else => @panic("NAppGUI supports only Linux, macOS and Windows"),
     }
