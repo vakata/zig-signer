@@ -1,0 +1,3 @@
+[submodule "vendor/nappgui"]
+	path = vendor/nappgui
+	url = https://github.com/frang75/nappgui.git

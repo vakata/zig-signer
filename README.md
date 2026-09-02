@@ -28,7 +28,7 @@ Under the hood once the sign request comes in some common pkcs11 lib locations a
  - [x] asn1 encoder/decoder works for the purposes of this project
  - [x] pkcs7 generation is ready
  - [x] xmldsig generation is ready
- - [ ] certificate and pin GUI (webui was removed, now the terminal is used temporarily)
+ - [x] native certificate and PIN GUI using NAppGUI
  - [x] web server is working
  - [x] custom lib location can be hardcoded using a file named lib in cwd
  - [x] sessions are implemented using selectSigner and clearSigner - no PIN required for an active session

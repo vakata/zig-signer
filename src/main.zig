@@ -2,13 +2,14 @@ const std = @import("std");
 const builtin = @import("builtin");
 const asn1 = @import("asn1/asn1.zig");
 const Certificate = @import("asn1/structures/Certificate.zig").Certificate;
-const DateTime = @import("helpers/DateTime.zig").DateTime;
+const DateTime = @import("helpers/Datetime.zig").DateTime;
 const P7S = @import("asn1/structures/P7S.zig").P7S;
 const xml = @import("xml");
 const httpz = @import("httpz");
 const pkcs11 = @import("lib/pkcs11.zig").Lib;
 const Node = asn1.Node;
 const CertificateList = struct { lib: u8, handle: u8, name: []const u8 };
+const PickerSelection = struct { certificate: u8, pin: [8]u8 };
 
 // global state - pin and chosen certificate
 var p: [8]u8 = [_]u8{0} ** 8;
@@ -20,10 +21,12 @@ var certificates: std.ArrayList(CertificateList) = undefined;
 var session: [8]u8 = [_]u8{0} ** 8; 
 var gpa: std.mem.Allocator = undefined;
 var gio: std.Io = undefined;
+var gargs: std.process.Args = undefined;
 
 pub fn main(init: std.process.Init) !void {
     gpa = init.gpa;
     gio = init.io;
+    gargs = init.minimal.args;
     const allocator = init.gpa;
     std.debug.print("Starting ...\n", .{});
 
@@ -127,42 +130,51 @@ fn scan(allocator: std.mem.Allocator, io: std.Io) !void {
 fn pick(allocator: std.mem.Allocator, io: std.Io) !void {
     std.debug.print(" * picker\n", .{});
 
-    // build a list of certificates to pick from for the UI
-    var ui_list: std.ArrayList(struct { handle: u8, name: []const u8 }) = .empty;
-    defer ui_list.deinit(allocator);
-    for (0.., certificates.items) |i, certificate| {
-        try ui_list.append(allocator, .{
-            .handle = @truncate(i),
-            .name = certificate.name
-        });
-    }
-
     // reset selection and pin
     c = 0;
     p = [_]u8{0} ** 8;
 
-    if (certificates.items.len > 0) {
-        var stdin_buf: [256]u8 = undefined;
-        var stdin_reader = std.Io.File.stdin().reader(io, &stdin_buf);
-        const stdin = &stdin_reader.interface;
-
-        std.debug.print("\nFOUND {d} CERTIFICATES\n", .{certificates.items.len});
-        for (0.., certificates.items) |i, certificate| {
-            std.debug.print(" {d}) {s}\n", .{i,certificate.name});
-        }
-        std.debug.print("PICK: ", .{});
-        const c_input = try stdin.takeDelimiter('\n') orelse "";
-        c = try std.fmt.parseInt(u8, c_input, 10);
-        std.debug.print("PIN: ", .{});
-        const p_input = try stdin.takeDelimiter('\n') orelse "";
-        const len = if (p_input.len < 8) p_input.len else 8;
-        @memcpy(p[0..len], p_input[0..len]);
-    }
-
-    // nothing chosen
-    if (c >= certificates.items.len) {
+    if (certificates.items.len == 0)
         return error.Cancel;
+
+    const picker_name = if (builtin.target.os.tag == .windows) "signer-picker.exe" else "signer-picker";
+    var process_args = try std.process.Args.Iterator.initAllocator(gargs, allocator);
+    defer process_args.deinit();
+    const signer_path = process_args.next() orelse return error.InvalidExecutablePath;
+    const picker_path = if (std.fs.path.dirname(signer_path)) |executable_dir|
+        try std.fs.path.join(allocator, &.{ executable_dir, picker_name })
+    else
+        try allocator.dupe(u8, picker_name);
+    defer allocator.free(picker_path);
+
+    var picker_args: std.ArrayList([]const u8) = .empty;
+    defer picker_args.deinit(allocator);
+    try picker_args.append(allocator, picker_path);
+    for (certificates.items) |certificate|
+        try picker_args.append(allocator, certificate.name);
+
+    const picker_result = try std.process.run(allocator, io, .{
+        .argv = picker_args.items,
+        .stdout_limit = .limited(4096),
+        .stderr_limit = .limited(4096),
+        .create_no_window = false,
+    });
+    defer {
+        @memset(picker_result.stdout, 0);
+        @memset(picker_result.stderr, 0);
+        allocator.free(picker_result.stdout);
+        allocator.free(picker_result.stderr);
     }
+
+    switch (picker_result.term) {
+        .exited => |code| if (code != 0) return error.Cancel,
+        else => return error.Cancel,
+    }
+
+    const selection = try parsePickerResult(picker_result.stdout, certificates.items.len);
+    c = selection.certificate;
+    p = selection.pin;
+
     // check for empty pin
     var len = p.len;
     while (len > 0 and p[len - 1] == 0) : (len -= 1) {}
@@ -170,6 +182,35 @@ fn pick(allocator: std.mem.Allocator, io: std.Io) !void {
     if (len == 0) {
         return error.Cancel;
     }
+}
+
+fn parsePickerResult(output: []const u8, certificate_count: usize) !PickerSelection {
+    const marker = "ZIG_SIGNER_RESULT ";
+    const marker_pos = std.mem.lastIndexOf(u8, output, marker) orelse return error.InvalidPickerOutput;
+    var fields = std.mem.tokenizeAny(u8, output[marker_pos + marker.len..], " \r\n\t");
+    const selected_text = fields.next() orelse return error.InvalidPickerOutput;
+    const pin_hex = fields.next() orelse return error.InvalidPickerOutput;
+    var pin = [_]u8{0} ** 8;
+    if (pin_hex.len == 0 or pin_hex.len > pin.len * 2 or pin_hex.len % 2 != 0)
+        return error.InvalidPickerOutput;
+
+    const selected = try std.fmt.parseInt(usize, selected_text, 10);
+    if (selected >= certificate_count or selected > std.math.maxInt(u8))
+        return error.InvalidPickerOutput;
+    _ = try std.fmt.hexToBytes(&pin, pin_hex);
+    return .{ .certificate = @intCast(selected), .pin = pin };
+}
+
+test "parse NAppGUI picker result" {
+    const selection = try parsePickerResult("NAppGUI log\nZIG_SIGNER_RESULT 2 31323334\n", 3);
+    try std.testing.expectEqual(@as(u8, 2), selection.certificate);
+    try std.testing.expectEqualSlices(u8, "1234\x00\x00\x00\x00", &selection.pin);
+}
+
+test "reject invalid NAppGUI picker result" {
+    try std.testing.expectError(error.InvalidPickerOutput, parsePickerResult("", 1));
+    try std.testing.expectError(error.InvalidPickerOutput, parsePickerResult("ZIG_SIGNER_RESULT 1 3132\n", 1));
+    try std.testing.expectError(error.InvalidPickerOutput, parsePickerResult("ZIG_SIGNER_RESULT 0 123\n", 1));
 }
 fn signRaw(allocator: std.mem.Allocator, data: []const u8) ![]const u8 {
     std.debug.print(" ! signing raw\n", .{});
@@ -590,4 +631,3 @@ fn httpSign(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
         .errorCode = 1
     }, .{});
 }
-
