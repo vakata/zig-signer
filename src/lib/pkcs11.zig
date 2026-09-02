@@ -1,29 +1,54 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-pub const CK_VERSION = switch (builtin.target.os.tag) {
-    .windows => packed struct {
-        major: u8,
-        minor: u8,
-    },
-    else => extern struct {
-        major: u8,
-        minor: u8,
+const WindowsDynLib = struct {
+    handle: std.os.windows.HMODULE,
+
+    const Error = error{LoadLibraryFailed};
+
+    extern "kernel32" fn LoadLibraryA(path: [*:0]const u8) callconv(.winapi) ?std.os.windows.HMODULE;
+    extern "kernel32" fn GetProcAddress(module: std.os.windows.HMODULE, name: [*:0]const u8) callconv(.winapi) ?*anyopaque;
+    extern "kernel32" fn FreeLibrary(module: std.os.windows.HMODULE) callconv(.winapi) std.os.windows.BOOL;
+
+    fn open(path: []const u8) Error!WindowsDynLib {
+        const path_z = std.heap.page_allocator.dupeZ(u8, path) catch return error.LoadLibraryFailed;
+        defer std.heap.page_allocator.free(path_z);
+        return .{ .handle = LoadLibraryA(path_z.ptr) orelse return error.LoadLibraryFailed };
+    }
+
+    fn lookup(self: *WindowsDynLib, comptime T: type, name: [:0]const u8) ?T {
+        const address = GetProcAddress(self.handle, name.ptr) orelse return null;
+        return switch (@typeInfo(T)) {
+            .optional => |info| @as(info.child, @ptrCast(address)),
+            .pointer => @ptrCast(address),
+            else => @compileError("dynamic-library symbols must be pointer types"),
+        };
+    }
+
+    fn close(self: *WindowsDynLib) void {
+        _ = FreeLibrary(self.handle);
     }
 };
+
+const DynLib = if (builtin.target.os.tag == .windows) WindowsDynLib else std.DynLib;
+
+pub const CK_VERSION = extern struct {
+    major: u8,
+    minor: u8,
+};
 pub const CK_INFO = extern struct {
-    cryptokiVersion: CK_VERSION,
-    manufacturerID: [32]u8,
-    flags: c_ulong,
-    libraryDescription: [32]u8,
-    libraryVersion: CK_VERSION,
+    cryptokiVersion: CK_VERSION align(if (builtin.target.os.tag == .windows) 1 else @alignOf(CK_VERSION)),
+    manufacturerID: [32]u8 align(1),
+    flags: c_ulong align(if (builtin.target.os.tag == .windows) 1 else @alignOf(c_ulong)),
+    libraryDescription: [32]u8 align(1),
+    libraryVersion: CK_VERSION align(if (builtin.target.os.tag == .windows) 1 else @alignOf(CK_VERSION)),
 };
 pub const CK_SLOT_INFO = extern struct {
-    slotDescription: [64]u8,
-    manufacturerID: [32]u8,
-    flags: c_ulong,
-    hardwareVersion: CK_VERSION,
-    firmwareVersion: CK_VERSION,
+    slotDescription: [64]u8 align(1),
+    manufacturerID: [32]u8 align(1),
+    flags: c_ulong align(if (builtin.target.os.tag == .windows) 1 else @alignOf(c_ulong)),
+    hardwareVersion: CK_VERSION align(if (builtin.target.os.tag == .windows) 1 else @alignOf(CK_VERSION)),
+    firmwareVersion: CK_VERSION align(if (builtin.target.os.tag == .windows) 1 else @alignOf(CK_VERSION)),
 };
 pub const CK_TOKEN_INFO = extern struct {
     label: [32]u8,
@@ -52,10 +77,10 @@ pub const CK_SESSION_INFO = extern struct {
     ulDeviceError: c_ulong,
 };
 pub const CK_ATTRIBUTE = switch (builtin.target.os.tag) {
-    .windows => packed struct {
-        type: c_ulong,
-        pValue: ?*anyopaque,
-        ulValueLen: c_ulong,
+    .windows => extern struct {
+        type: c_ulong align(1),
+        pValue: ?*anyopaque align(1),
+        ulValueLen: c_ulong align(1),
     },
     else => extern struct {
         type: c_ulong,
@@ -64,10 +89,10 @@ pub const CK_ATTRIBUTE = switch (builtin.target.os.tag) {
     }
 };
 pub const CK_MECHANISM = switch (builtin.target.os.tag) {
-    .windows => packed struct {
-        mechanism: c_ulong,
-        pParameter: ?*anyopaque,
-        ulParameterLen: c_ulong,
+    .windows => extern struct {
+        mechanism: c_ulong align(1),
+        pParameter: ?*anyopaque align(1),
+        ulParameterLen: c_ulong align(1),
     },
     else => extern struct {
         mechanism: c_ulong,
@@ -163,76 +188,76 @@ const C_CancelFunction = ?*const fn (c_ulong) callconv(.c) c_ulong;
 const C_WaitForSlotEvent = ?*const fn (c_ulong, [*c]c_ulong, ?*anyopaque) callconv(.c) c_ulong;
 
 pub const CK_FUNCTION_LIST = switch (builtin.target.os.tag) {
-    .windows => packed struct {
-        version: CK_VERSION,
-        C_Initialize: C_Initialize,
-        C_Finalize: C_Finalize,
-        C_GetInfo: C_GetInfo,
-        C_GetFunctionList: C_GetFunctionListInt,
-        C_GetSlotList: C_GetSlotList,
-        C_GetSlotInfo: C_GetSlotInfo,
-        C_GetTokenInfo: C_GetTokenInfo,
-        C_GetMechanismList: C_GetMechanismList,
-        C_GetMechanismInfo: C_GetMechanismInfo,
-        C_InitToken: C_InitToken,
-        C_InitPIN: C_InitPIN,
-        C_SetPIN: C_SetPIN,
-        C_OpenSession: C_OpenSession,
-        C_CloseSession: C_CloseSession,
-        C_CloseAllSessions: C_CloseAllSessions,
-        C_GetSessionInfo: C_GetSessionInfo,
-        C_GetOperationState: C_GetOperationState,
-        C_SetOperationState: C_SetOperationState,
-        C_Login: C_Login,
-        C_Logout: C_Logout,
-        C_CreateObject: C_CreateObject,
-        C_CopyObject: C_CopyObject,
-        C_DestroyObject: C_DestroyObject,
-        C_GetObjectSize: C_GetObjectSize,
-        C_GetAttributeValue: C_GetAttributeValue,
-        C_SetAttributeValue: C_SetAttributeValue,
-        C_FindObjectsInit: C_FindObjectsInit,
-        C_FindObjects: C_FindObjects,
-        C_FindObjectsFinal: C_FindObjectsFinal,
-        C_EncryptInit: C_EncryptInit,
-        C_Encrypt: C_Encrypt,
-        C_EncryptUpdate: C_EncryptUpdate,
-        C_EncryptFinal: C_EncryptFinal,
-        C_DecryptInit: C_DecryptInit,
-        C_Decrypt: C_Decrypt,
-        C_DecryptUpdate: C_DecryptUpdate,
-        C_DecryptFinal: C_DecryptFinal,
-        C_DigestInit: C_DigestInit,
-        C_Digest: C_Digest,
-        C_DigestUpdate: C_DigestUpdate,
-        C_DigestKey: C_DigestKey,
-        C_DigestFinal: C_DigestFinal,
-        C_SignInit: C_SignInit,
-        C_Sign: C_Sign,
-        C_SignUpdate: C_SignUpdate,
-        C_SignFinal: C_SignFinal,
-        C_SignRecoverInit: C_SignRecoverInit,
-        C_SignRecover: C_SignRecover,
-        C_VerifyInit: C_VerifyInit,
-        C_Verify: C_Verify,
-        C_VerifyUpdate: C_VerifyUpdate,
-        C_VerifyFinal: C_VerifyFinal,
-        C_VerifyRecoverInit: C_VerifyRecoverInit,
-        C_VerifyRecover: C_VerifyRecover,
-        C_DigestEncryptUpdate: C_DigestEncryptUpdate,
-        C_DecryptDigestUpdate: C_DecryptDigestUpdate,
-        C_SignEncryptUpdate: C_SignEncryptUpdate,
-        C_DecryptVerifyUpdate: C_DecryptVerifyUpdate,
-        C_GenerateKey: C_GenerateKey,
-        C_GenerateKeyPair: C_GenerateKeyPair,
-        C_WrapKey: C_WrapKey,
-        C_UnwrapKey: C_UnwrapKey,
-        C_DeriveKey: C_DeriveKey,
-        C_SeedRandom: C_SeedRandom,
-        C_GenerateRandom: C_GenerateRandom,
-        C_GetFunctionStatus: C_GetFunctionStatus,
-        C_CancelFunction: C_CancelFunction,
-        C_WaitForSlotEvent: C_WaitForSlotEvent,
+    .windows => extern struct {
+        version: CK_VERSION align(1),
+        C_Initialize: C_Initialize align(1),
+        C_Finalize: C_Finalize align(1),
+        C_GetInfo: C_GetInfo align(1),
+        C_GetFunctionList: C_GetFunctionListInt align(1),
+        C_GetSlotList: C_GetSlotList align(1),
+        C_GetSlotInfo: C_GetSlotInfo align(1),
+        C_GetTokenInfo: C_GetTokenInfo align(1),
+        C_GetMechanismList: C_GetMechanismList align(1),
+        C_GetMechanismInfo: C_GetMechanismInfo align(1),
+        C_InitToken: C_InitToken align(1),
+        C_InitPIN: C_InitPIN align(1),
+        C_SetPIN: C_SetPIN align(1),
+        C_OpenSession: C_OpenSession align(1),
+        C_CloseSession: C_CloseSession align(1),
+        C_CloseAllSessions: C_CloseAllSessions align(1),
+        C_GetSessionInfo: C_GetSessionInfo align(1),
+        C_GetOperationState: C_GetOperationState align(1),
+        C_SetOperationState: C_SetOperationState align(1),
+        C_Login: C_Login align(1),
+        C_Logout: C_Logout align(1),
+        C_CreateObject: C_CreateObject align(1),
+        C_CopyObject: C_CopyObject align(1),
+        C_DestroyObject: C_DestroyObject align(1),
+        C_GetObjectSize: C_GetObjectSize align(1),
+        C_GetAttributeValue: C_GetAttributeValue align(1),
+        C_SetAttributeValue: C_SetAttributeValue align(1),
+        C_FindObjectsInit: C_FindObjectsInit align(1),
+        C_FindObjects: C_FindObjects align(1),
+        C_FindObjectsFinal: C_FindObjectsFinal align(1),
+        C_EncryptInit: C_EncryptInit align(1),
+        C_Encrypt: C_Encrypt align(1),
+        C_EncryptUpdate: C_EncryptUpdate align(1),
+        C_EncryptFinal: C_EncryptFinal align(1),
+        C_DecryptInit: C_DecryptInit align(1),
+        C_Decrypt: C_Decrypt align(1),
+        C_DecryptUpdate: C_DecryptUpdate align(1),
+        C_DecryptFinal: C_DecryptFinal align(1),
+        C_DigestInit: C_DigestInit align(1),
+        C_Digest: C_Digest align(1),
+        C_DigestUpdate: C_DigestUpdate align(1),
+        C_DigestKey: C_DigestKey align(1),
+        C_DigestFinal: C_DigestFinal align(1),
+        C_SignInit: C_SignInit align(1),
+        C_Sign: C_Sign align(1),
+        C_SignUpdate: C_SignUpdate align(1),
+        C_SignFinal: C_SignFinal align(1),
+        C_SignRecoverInit: C_SignRecoverInit align(1),
+        C_SignRecover: C_SignRecover align(1),
+        C_VerifyInit: C_VerifyInit align(1),
+        C_Verify: C_Verify align(1),
+        C_VerifyUpdate: C_VerifyUpdate align(1),
+        C_VerifyFinal: C_VerifyFinal align(1),
+        C_VerifyRecoverInit: C_VerifyRecoverInit align(1),
+        C_VerifyRecover: C_VerifyRecover align(1),
+        C_DigestEncryptUpdate: C_DigestEncryptUpdate align(1),
+        C_DecryptDigestUpdate: C_DecryptDigestUpdate align(1),
+        C_SignEncryptUpdate: C_SignEncryptUpdate align(1),
+        C_DecryptVerifyUpdate: C_DecryptVerifyUpdate align(1),
+        C_GenerateKey: C_GenerateKey align(1),
+        C_GenerateKeyPair: C_GenerateKeyPair align(1),
+        C_WrapKey: C_WrapKey align(1),
+        C_UnwrapKey: C_UnwrapKey align(1),
+        C_DeriveKey: C_DeriveKey align(1),
+        C_SeedRandom: C_SeedRandom align(1),
+        C_GenerateRandom: C_GenerateRandom align(1),
+        C_GetFunctionStatus: C_GetFunctionStatus align(1),
+        C_CancelFunction: C_CancelFunction align(1),
+        C_WaitForSlotEvent: C_WaitForSlotEvent align(1),
     },
     else => extern struct {
         version: CK_VERSION,
@@ -307,13 +332,28 @@ pub const CK_FUNCTION_LIST = switch (builtin.target.os.tag) {
     }
 };
 
+comptime {
+    if (builtin.target.os.tag == .windows) {
+        if (@sizeOf(CK_VERSION) != 2)
+            @compileError("invalid Windows CK_VERSION layout");
+        if (@offsetOf(CK_INFO, "flags") != 34 or @sizeOf(CK_INFO) != 72)
+            @compileError("invalid Windows CK_INFO layout");
+        if (@offsetOf(CK_ATTRIBUTE, "pValue") != 4 or @sizeOf(CK_ATTRIBUTE) != 16)
+            @compileError("invalid Windows CK_ATTRIBUTE layout");
+        if (@offsetOf(CK_MECHANISM, "pParameter") != 4 or @sizeOf(CK_MECHANISM) != 16)
+            @compileError("invalid Windows CK_MECHANISM layout");
+        if (@offsetOf(CK_FUNCTION_LIST, "C_Initialize") != 2 or @alignOf(CK_FUNCTION_LIST) != 1)
+            @compileError("invalid Windows CK_FUNCTION_LIST layout");
+    }
+}
+
 // TODO: combine in a single struct
 const SlotSess = struct { slot:c_ulong, sess:c_ulong };
 const CertSess = struct { cert:c_ulong, sess:c_ulong };
 
 pub const Lib = struct {
     allocator: std.mem.Allocator,
-    lib: std.DynLib,
+    lib: DynLib,
     sym: *CK_FUNCTION_LIST,
     sessions: std.ArrayList(SlotSess),
     certificates: std.ArrayList(CertSess),
@@ -321,7 +361,7 @@ pub const Lib = struct {
     pub fn init(allocator: std.mem.Allocator, path: []const u8) !*Lib {
         std.debug.print(" ? init starting ... {s}\n", .{path});
         const self = try allocator.create(Lib);
-        var lib = try std.DynLib.open(path);
+        var lib = try DynLib.open(path);
         std.debug.print(" ? lib opened ... {s}\n", .{path});
 
         const list = lib.lookup(C_GetFunctionList, "C_GetFunctionList") orelse return error.BindError;
@@ -582,4 +622,3 @@ pub const Lib = struct {
         return sig;
     }
 };
-
