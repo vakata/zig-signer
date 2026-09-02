@@ -157,18 +157,18 @@ jobs:
           class Signer < Formula
             desc "Local HTTP service for signing data with PKCS#11 certificates"
             homepage "https://github.com/vakata/zig-signer"
-            version "$(VERSION)"
+            version "${VERSION}"
             license "MIT"
 
             on_macos do
               on_arm do
-                url "https://github.com/vakata/zig-signer/releases/download/0.0.4/signer-macos-aarch64.tar.gz"
-                sha256 "$(MAC_ARM_SHA)"
+                url "https://github.com/vakata/zig-signer/releases/download/${VERSION}/signer-macos-aarch64.tar.gz"
+                sha256 "${MAC_ARM_SHA}"
               end
 
               on_intel do
-                url "https://github.com/vakata/zig-signer/releases/download/0.0.4/signer-macos-x86_64.tar.gz"
-                sha256 "$(MAC_X86_SHA)"
+                url "https://github.com/vakata/zig-signer/releases/download/${VERSION}/signer-macos-x86_64.tar.gz"
+                sha256 "${MAC_X86_SHA}"
               end
             end
 
@@ -176,13 +176,13 @@ jobs:
               depends_on "gtk+3"
 
               on_arm do
-                url "https://github.com/vakata/zig-signer/releases/download/0.0.4/signer-linux-aarch64.tar.gz"
-                sha256 "$(LINUX_ARM_SHA)"
+                url "https://github.com/vakata/zig-signer/releases/download/${VERSION}/signer-linux-aarch64.tar.gz"
+                sha256 "${LINUX_ARM_SHA}"
               end
 
               on_intel do
-                url "https://github.com/vakata/zig-signer/releases/download/0.0.4/signer-linux-x86_64.tar.gz"
-                sha256 "$(LINUX_X86_SHA)"
+                url "https://github.com/vakata/zig-signer/releases/download/${VERSION}/signer-linux-x86_64.tar.gz"
+                sha256 "${LINUX_X86_SHA}"
               end
             end
 
