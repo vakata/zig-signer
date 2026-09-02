@@ -114,3 +114,97 @@ jobs:
             --repo "${GITHUB_REPOSITORY}" \
             --verify-tag \
             --generate-notes
+
+  homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+  
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+  
+      - name: Read checksums
+        id: sha
+        shell: bash
+        run: |
+          echo "maca=$(cut -d' ' -f1 dist/signer-macos-aarch64.tar.gz.sha256)" >> "$GITHUB_OUTPUT"
+          echo "linuxa=$(cut -d' ' -f1 dist/signer-linux-aarch64.tar.gz.sha256)" >> "$GITHUB_OUTPUT"
+          echo "macx=$(cut -d' ' -f1 dist/signer-macos-x86_64.tar.gz.sha256)" >> "$GITHUB_OUTPUT"
+          echo "linuxx=$(cut -d' ' -f1 dist/signer-linux-x86_64.tar.gz.sha256)" >> "$GITHUB_OUTPUT"
+  
+      - name: Checkout Homebrew tap
+        uses: actions/checkout@v7
+        with:
+          repository: vakata/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+  
+      - name: Update formula
+        shell: bash
+        env:
+          VERSION: ${{ github.ref_name }}
+          MAC_ARM_SHA: ${{ steps.sha.outputs.maca }}
+          MAC_X86_SHA: ${{ steps.sha.outputs.macx }}
+          LINUX_ARM_SHA: ${{ steps.sha.outputs.linuxa }}
+          LINUX_X86_SHA: ${{ steps.sha.outputs.linuxx }}
+        run: |
+          VERSION="${VERSION}"
+
+          cat > tap/Formula/signer.rb <<EOF
+          class Signer < Formula
+            desc "Local HTTP service for signing data with PKCS#11 certificates"
+            homepage "https://github.com/vakata/zig-signer"
+            version "$(VERSION)"
+            license "MIT"
+
+            on_macos do
+              on_arm do
+                url "https://github.com/vakata/zig-signer/releases/download/0.0.4/signer-macos-aarch64.tar.gz"
+                sha256 "$(MAC_ARM_SHA)"
+              end
+
+              on_intel do
+                url "https://github.com/vakata/zig-signer/releases/download/0.0.4/signer-macos-x86_64.tar.gz"
+                sha256 "$(MAC_X86_SHA)"
+              end
+            end
+
+            on_linux do
+              depends_on "gtk+3"
+
+              on_arm do
+                url "https://github.com/vakata/zig-signer/releases/download/0.0.4/signer-linux-aarch64.tar.gz"
+                sha256 "$(LINUX_ARM_SHA)"
+              end
+
+              on_intel do
+                url "https://github.com/vakata/zig-signer/releases/download/0.0.4/signer-linux-x86_64.tar.gz"
+                sha256 "$(LINUX_X86_SHA)"
+              end
+            end
+
+            def install
+              bin.install "signer", "signer-picker"
+            end
+
+            test do
+              assert_predicate bin/"signer", :executable?
+              assert_predicate bin/"signer-picker", :executable?
+            end
+          end
+          EOF
+
+      - name: Commit formula
+        working-directory: tap
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+  
+          git add Formula/signer.rb
+          git commit -m "signer ${GITHUB_REF_NAME}"
+          git push
+

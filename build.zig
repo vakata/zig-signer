@@ -66,18 +66,11 @@ fn addPicker(
             .link_libc = true,
         }),
     });
-    const picker_c_flags: []const []const u8 = if (target.result.os.tag == .windows)
-        switch (optimize) {
-            .Debug => &.{ "-DCMAKE_DEBUG", "-D_WINDOWS", "-D_M_AMD64", "-D_MSC_VER=1930" },
-            .ReleaseSafe => &.{ "-DCMAKE_RELEASEWITHASSERT", "-D_WINDOWS", "-D_M_AMD64", "-D_MSC_VER=1930" },
-            .ReleaseFast, .ReleaseSmall => &.{ "-DCMAKE_RELEASE", "-D_WINDOWS", "-D_M_AMD64", "-D_MSC_VER=1930" },
-        }
-    else
-        switch (optimize) {
-            .Debug => &.{"-DCMAKE_DEBUG"},
-            .ReleaseSafe => &.{"-DCMAKE_RELEASEWITHASSERT"},
-            .ReleaseFast, .ReleaseSmall => &.{"-DCMAKE_RELEASE"},
-        };
+    const picker_c_flags: []const []const u8 = switch (optimize) {
+        .Debug => &.{"-DCMAKE_DEBUG"},
+        .ReleaseSafe => &.{"-DCMAKE_RELEASEWITHASSERT"},
+        .ReleaseFast, .ReleaseSmall => &.{"-DCMAKE_RELEASE"},
+    };
     picker.root_module.addCSourceFile(.{
         .file = b.path("src/gui/picker.c"),
         .flags = picker_c_flags,
@@ -116,20 +109,11 @@ fn addPicker(
             picker.root_module.linkSystemLibrary("m", .{});
         },
         .macos => {
-            picker.root_module.addCSourceFile(.{
-                .file = b.path("src/gui/macos_activate.m"),
-                .flags = picker_c_flags,
-            });
             picker.root_module.linkFramework("Cocoa", .{});
             picker.root_module.linkFramework("UniformTypeIdentifiers", .{});
         },
         .windows => {
             picker.subsystem = .windows;
-            picker.root_module.linkSystemLibrary("ws2_32", .{});
-            picker.root_module.linkSystemLibrary("gdiplus", .{});
-            picker.root_module.linkSystemLibrary("shlwapi", .{});
-            picker.root_module.linkSystemLibrary("comctl32", .{});
-            picker.root_module.linkSystemLibrary("uxtheme", .{});
         },
         else => @panic("NAppGUI supports only Linux, macOS and Windows"),
     }
