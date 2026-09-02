@@ -34,16 +34,26 @@ jobs:
             target: aarch64-macos
             artifact: macos-aarch64
 
+          - os: windows-latest
+            target: x86_64-windows
+            artifcat: windows-x86_64
+
     runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          submodules: recursive
 
-      - name: Setup Zig
+      - name: Install Zig
         uses: mlugg/setup-zig@v2
         with:
           version: ${{ env.ZIG_VERSION }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev
 
       - name: Build
         run: |
@@ -66,12 +76,6 @@ jobs:
           else
             shasum -a 256 "dist/${archive}.tar.gz" > "dist/${archive}.tar.gz.sha256"
           fi
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ matrix.artifact }}
-          path: dist/*
 
   release:
     needs: build
