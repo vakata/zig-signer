@@ -81,12 +81,11 @@ fn addPicker(
             .ReleaseSafe => &.{ "-DCMAKE_RELEASEWITHASSERT", "-D_WINDOWS", "-D_M_AMD64", "-D_MSC_VER=1930" },
             .ReleaseFast, .ReleaseSmall => &.{ "-DCMAKE_RELEASE", "-D_WINDOWS", "-D_M_AMD64", "-D_MSC_VER=1930" },
         }
-    else
-        switch (optimize) {
-            .Debug => &.{"-DCMAKE_DEBUG"},
-            .ReleaseSafe => &.{"-DCMAKE_RELEASEWITHASSERT"},
-            .ReleaseFast, .ReleaseSmall => &.{"-DCMAKE_RELEASE"},
-        };
+    else switch (optimize) {
+        .Debug => &.{"-DCMAKE_DEBUG"},
+        .ReleaseSafe => &.{"-DCMAKE_RELEASEWITHASSERT"},
+        .ReleaseFast, .ReleaseSmall => &.{"-DCMAKE_RELEASE"},
+    };
     picker.root_module.addCSourceFile(.{
         .file = b.path("src/gui/picker.c"),
         .flags = picker_c_flags,
@@ -134,6 +133,18 @@ fn addPicker(
         },
         .windows => {
             picker.subsystem = .windows;
+            // Zig invokes lld-link directly, so add the Win32 desktop import
+            // libraries that MSVC normally supplies to GUI applications.
+            picker.root_module.linkSystemLibrary("kernel32", .{});
+            picker.root_module.linkSystemLibrary("user32", .{});
+            picker.root_module.linkSystemLibrary("gdi32", .{});
+            picker.root_module.linkSystemLibrary("winspool", .{});
+            picker.root_module.linkSystemLibrary("shell32", .{});
+            picker.root_module.linkSystemLibrary("ole32", .{});
+            picker.root_module.linkSystemLibrary("oleaut32", .{});
+            picker.root_module.linkSystemLibrary("uuid", .{});
+            picker.root_module.linkSystemLibrary("comdlg32", .{});
+            picker.root_module.linkSystemLibrary("advapi32", .{});
             picker.root_module.linkSystemLibrary("ws2_32", .{});
             picker.root_module.linkSystemLibrary("gdiplus", .{});
             picker.root_module.linkSystemLibrary("shlwapi", .{});
