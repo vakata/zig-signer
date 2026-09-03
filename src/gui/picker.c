@@ -239,7 +239,17 @@ int main(int argc, char **argv)
 {
     i_argc = argc;
     i_argv = argv;
+#if defined(__LINUX__)
+    /*
+     * Keep certificate names out of g_application_run(). GTK interprets extra
+     * command-line arguments as files or options and may return before the
+     * activation callback creates the window. The picker still reads the
+     * original argc/argv through i_argc and i_argv above.
+     */
+    osmain_imp(1, (char_t **)argv, NULL, 0., (FPtr_app_create)i_create, NULL, (FPtr_destroy)i_destroy, "");
+#else
     osmain_imp((uint32_t)argc, (char_t **)argv, NULL, 0., (FPtr_app_create)i_create, NULL, (FPtr_destroy)i_destroy, "");
+#endif
     return i_accepted == TRUE ? 0 : 2;
 }
 

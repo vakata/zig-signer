@@ -70,10 +70,41 @@ fn scan(allocator: std.mem.Allocator, io: std.Io) !void {
             "bit4ipki.dll",
         },
         .linux => &.{
-            "/usr/lib/libIDPrimePKCS11.dylib",
-            "/usr/lib/libOcsPKCS11Wrapper.dylib",
-            "/usr/lib/libcmP11.dylib",
-            "/usr/lib/bit4ipkcs11.dylib",
+            // Arch Linux and other distributions using /usr/lib.
+            "/usr/lib/libIDPrimePKCS11.so",
+            "/usr/lib/libOcsPKCS11Wrapper.so",
+            "/usr/lib/libcmP11.so",
+            "/usr/lib/libeTPkcs11.so",
+            "/usr/lib/libbit4ipki.so",
+            "/usr/lib/opensc-pkcs11.so",
+            "/usr/lib/pkcs11/opensc-pkcs11.so",
+
+            // Debian/Ubuntu x86_64 multiarch locations.
+            "/usr/lib/x86_64-linux-gnu/libIDPrimePKCS11.so",
+            "/usr/lib/x86_64-linux-gnu/libOcsPKCS11Wrapper.so",
+            "/usr/lib/x86_64-linux-gnu/libcmP11.so",
+            "/usr/lib/x86_64-linux-gnu/libeTPkcs11.so",
+            "/usr/lib/x86_64-linux-gnu/libbit4ipki.so",
+            "/usr/lib/x86_64-linux-gnu/opensc-pkcs11.so",
+            "/usr/lib/x86_64-linux-gnu/pkcs11/opensc-pkcs11.so",
+
+            // Debian/Ubuntu aarch64 multiarch locations.
+            "/usr/lib/aarch64-linux-gnu/libIDPrimePKCS11.so",
+            "/usr/lib/aarch64-linux-gnu/libOcsPKCS11Wrapper.so",
+            "/usr/lib/aarch64-linux-gnu/libcmP11.so",
+            "/usr/lib/aarch64-linux-gnu/libeTPkcs11.so",
+            "/usr/lib/aarch64-linux-gnu/libbit4ipki.so",
+            "/usr/lib/aarch64-linux-gnu/opensc-pkcs11.so",
+            "/usr/lib/aarch64-linux-gnu/pkcs11/opensc-pkcs11.so",
+
+            // Common vendor-specific subdirectories.
+            "/usr/lib/bit4id/libbit4ipki.so",
+            "/usr/local/lib/libIDPrimePKCS11.so",
+            "/usr/local/lib/libOcsPKCS11Wrapper.so",
+            "/usr/local/lib/libcmP11.so",
+            "/usr/local/lib/libeTPkcs11.so",
+            "/usr/local/lib/libbit4ipki.so",
+            "/usr/local/lib/opensc-pkcs11.so",
         },
         else => .{}
     };

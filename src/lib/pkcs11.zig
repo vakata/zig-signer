@@ -385,7 +385,7 @@ pub const Lib = struct {
 
     fn err(_: *Lib, rv: c_ulong) !void {
         if (rv != 0) {
-            std.debug.print(" ? lib error: {x}\n", .{rv});
+            std.debug.print(" ? lib error: 0x{x}\n", .{rv});
             return error.PKCS11Error;
         }
     }
@@ -589,6 +589,7 @@ pub const Lib = struct {
         };
         var buf: c_ulong = 0;
         attr[0].pValue = @constCast(&buf);
+        attr[0].ulValueLen = @sizeOf(c_ulong);
         try self.err(self.sym.C_GetAttributeValue.?(session, privkey, &attr, 1));
 
         var preferred: std.ArrayList(c_ulong) = .empty;
