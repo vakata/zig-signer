@@ -13,6 +13,8 @@ pub const P7S = struct {
         defer allocator.free(iss);
         const ser = try cert.serial(allocator);
         defer allocator.free(ser);
+        var hsh: [32]u8 = undefined;
+        std.crypto.hash.sha2.Sha256.hash(cert.der, &hsh, .{});
         const p7s = try Node.fromChildren(allocator, .sequence, &[_]*Node{
             try Node.fromValue(allocator, .object_identifier, .{ .string = "1.2.840.113549.1.7.2" }),
             try Node.fromChildren(allocator, ._explicit0, &[_]*Node{ // signed data wrapper
@@ -50,6 +52,30 @@ pub const P7S = struct {
                                     try Node.fromValue(allocator, .object_identifier, .{ .string = "1.2.840.113549.1.9.4" }),
                                     try Node.fromChildren(allocator, .set, &[_]*Node{
                                         try Node.fromValue (allocator, .octet_string, .{ .string = data }),
+                                    }),
+                                }),
+                                try Node.fromChildren(allocator, .sequence, &[_]*Node{
+                                    try Node.fromValue(allocator, .object_identifier, .{ .string = "1.2.840.113549.1.9.16.2.47" }),
+                                    try Node.fromChildren(allocator, .set, &[_]*Node{
+                                        try Node.fromChildren(allocator, .sequence, &[_]*Node{ // SigningCertificateV2
+                                            try Node.fromChildren(allocator, .sequence, &[_]*Node{ // certs
+                                                try Node.fromChildren(allocator, .sequence, &[_]*Node{ // ESSCertIDv2
+                                                    try Node.fromChildren(allocator, .sequence, &[_]*Node{ // algo
+                                                        try Node.fromValue(allocator, .object_identifier, .{ .string = "2.16.840.1.101.3.4.2.1" }),
+                                                        try Node.fromValue(allocator, .null, .{ .null = {} }),
+                                                    }),
+                                                    try Node.fromValue(allocator, .octet_string, .{ .string = &hsh }),
+                                                    try Node.fromChildren(allocator, .sequence, &[_]*Node{ // issuer and serial
+                                                        try Node.fromChildren(allocator, .sequence, &[_]*Node{
+                                                            try Node.fromChildren(allocator, ._explicit4, &[_]*Node{
+                                                                try Node.fromValue(allocator, .sequence, .{ .string = iss }),
+                                                            }),
+                                                        }),
+                                                        try Node.fromValue(allocator, .integer, .{ .string = ser }),
+                                                    }),
+                                                }),
+                                            }),
+                                        }),
                                     }),
                                 }),
                             }),

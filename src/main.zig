@@ -630,8 +630,10 @@ fn httpSign(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
                     try signature.appendSlice(res.arena, sig);
                 }
             } else {
+                const decoded = try res.arena.alloc(u8, try std.base64.standard.Decoder.calcSizeForSlice(cnt.string));
+                _ = try std.base64.standard.Decoder.decode(decoded, cnt.string);
                 std.debug.print(" - signing data ...\n", .{});
-                const temp = signData(res.arena, cnt.string) catch null;
+                const temp = signData(res.arena, decoded) catch null;
                 if (temp) |sig| {
                     try signature.appendSlice(res.arena, sig);
                 }
