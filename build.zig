@@ -58,6 +58,9 @@ fn addPicker(
     optimize: std.builtin.OptimizeMode,
 ) *std.Build.Step.Compile {
     // NAppGUI's bundled Windows libraries were built with Visual Studio 2022.
+    // Zig's native Windows target defaults to the GNU ABI, which causes the
+    // MSVC default-library directives embedded in those archives (uuid.lib,
+    // LIBCMT and OLDNAMES) to be translated into nonexistent lib*.a files.
     // Force the picker to MSVC while preserving the selected CPU and OS.
     var picker_target = target;
     if (target.result.os.tag == .windows) {
@@ -74,6 +77,7 @@ fn addPicker(
             .optimize = optimize,
             .link_libc = true,
         }),
+        .win32_manifest = b.path("src/gui/picker.manifest"),
     });
     const picker_c_flags: []const []const u8 = if (picker_target.result.os.tag == .windows)
         switch (optimize) {
