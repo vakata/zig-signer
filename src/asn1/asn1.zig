@@ -45,10 +45,10 @@ pub const Tag = enum(u8) {
     universal_string,
     unrestricted_string,
     bmp_string,
-    bit_string_constructed = 3 | @intFromEnum(Type.constructed),
-    octet_string_constructed = 4 | @intFromEnum(Type.constructed),
-    sequence = 16 | @intFromEnum(Type.constructed),
-    set = 17 | @intFromEnum(Type.constructed),
+    bit_string_constructed = 3 | @backingInt(Type.constructed),
+    octet_string_constructed = 4 | @backingInt(Type.constructed),
+    sequence = 16 | @backingInt(Type.constructed),
+    set = 17 | @backingInt(Type.constructed),
     _implicit0 = 128,
     _implicit1,
     _implicit2,
@@ -75,23 +75,23 @@ pub const Tag = enum(u8) {
         return !self.isConstructed();
     }
     pub fn isConstructed(self: Tag) bool {
-        return @intFromEnum(self) & @intFromEnum(Type.constructed) != 0;
+        return @backingInt(self) & @backingInt(Type.constructed) != 0;
     }
     pub fn isLong(self: Tag) bool {
-        return @intFromEnum(self) & 0b00011111 == 31;
+        return @backingInt(self) & 0b00011111 == 31;
     }
     pub fn val(self: *const Tag) u8 {
-        return @intFromEnum(self) & 0b00011111;
+        return @backingInt(self) & 0b00011111;
     }
     pub fn class(self: *const Tag) Class {
-        const tmp = @intFromEnum(self);
-            if (tmp & @intFromEnum(Class.application) == @intFromEnum(Class.application)) {
+        const tmp = @backingInt(self);
+            if (tmp & @backingInt(Class.application) == @backingInt(Class.application)) {
             return Class.application;
         }
-        if (tmp & @intFromEnum(Class.private) == @intFromEnum(Class.private)) {
+        if (tmp & @backingInt(Class.private) == @backingInt(Class.private)) {
             return Class.private;
         }
-        if (tmp & @intFromEnum(Class.context) == @intFromEnum(Class.context)) {
+        if (tmp & @backingInt(Class.context) == @backingInt(Class.context)) {
             return Class.context;
         }
         return Class.universal;
@@ -170,10 +170,10 @@ pub const Node = struct {
         imp: Tag,
         nodes: []const *Node
     ) !*Node {
-        const new_tag = @intFromEnum(tag) | @intFromEnum(Tag.Type.constructed);
+        const new_tag = @backingInt(tag) | @backingInt(Tag.Type.constructed);
         var node_list: std.ArrayList(*Node) = .empty;
         try node_list.appendSlice(allocator, nodes);
-        var node = try Node.init(allocator, @enumFromInt(new_tag), "", node_list);
+        var node = try Node.init(allocator, @fromBackingInt(new_tag), "", node_list);
         node.imp = imp;
         return node;
     }
@@ -183,11 +183,11 @@ pub const Node = struct {
         imp: Tag,
         val: Val,
     ) !*Node {
-        var new_tag = @intFromEnum(tag);
+        var new_tag = @backingInt(tag);
         if (imp.isConstructed()) {
-            new_tag |= @intFromEnum(Tag.Type.constructed);
+            new_tag |= @backingInt(Tag.Type.constructed);
         }
-        var node = try Node.init(allocator, @enumFromInt(new_tag), try encodeValue(allocator, imp, val), null);
+        var node = try Node.init(allocator, @fromBackingInt(new_tag), try encodeValue(allocator, imp, val), null);
         node.own = true;
         node.imp = imp;
         return node;
@@ -277,7 +277,7 @@ pub fn decode(allocator: std.mem.Allocator, buf: []const u8) !std.ArrayList(*Nod
         }
 
         // create node
-        const node = try Node.init(allocator, @enumFromInt(tag), buf[beg..end], null);
+        const node = try Node.init(allocator, @fromBackingInt(tag), buf[beg..end], null);
         if (node.tag.isConstructed()) {
             node.nodes = try decode(allocator, buf[beg..end]);
         }
@@ -324,7 +324,7 @@ pub fn encode(allocator: std.mem.Allocator, node: *Node) ![]const u8 {
     const clen = try encodeLength(allocator, len);
     defer allocator.free(clen);
     try buf.insertSlice(allocator, 0, clen);
-    try buf.insert(allocator, 0, @intFromEnum(node.tag));
+    try buf.insert(allocator, 0, @backingInt(node.tag));
     return try buf.toOwnedSlice(allocator);
 }
 

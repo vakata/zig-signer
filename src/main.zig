@@ -12,13 +12,13 @@ const CertificateList = struct { lib: u8, handle: u8, name: []const u8 };
 const PickerSelection = struct { certificate: u8, pin: [8]u8 };
 
 // global state - pin and chosen certificate
-var p: [8]u8 = [_]u8{0} ** 8;
+var p: [8]u8 = @splat(0);
 var c: u8 = 0;
 // global state - instances and found certificates
 var instances: std.ArrayList(*pkcs11) = undefined;
 var certificates: std.ArrayList(CertificateList) = undefined;
 // global state - session
-var session: [8]u8 = [_]u8{0} ** 8; 
+var session: [8]u8 = @splat(0);
 var gpa: std.mem.Allocator = undefined;
 var gio: std.Io = undefined;
 var gargs: std.process.Args = undefined;
@@ -163,7 +163,7 @@ fn pick(allocator: std.mem.Allocator, io: std.Io) !void {
 
     // reset selection and pin
     c = 0;
-    p = [_]u8{0} ** 8;
+    p = @splat(0);
 
     if (certificates.items.len == 0)
         return error.Cancel;
@@ -221,7 +221,7 @@ fn parsePickerResult(output: []const u8, certificate_count: usize) !PickerSelect
     var fields = std.mem.tokenizeAny(u8, output[marker_pos + marker.len..], " \r\n\t");
     const selected_text = fields.next() orelse return error.InvalidPickerOutput;
     const pin_hex = fields.next() orelse return error.InvalidPickerOutput;
-    var pin = [_]u8{0} ** 8;
+    var pin = @as([8]u8, @splat(0));
     if (pin_hex.len == 0 or pin_hex.len > pin.len * 2 or pin_hex.len % 2 != 0)
         return error.InvalidPickerOutput;
 
@@ -543,7 +543,7 @@ fn httpVersion(_: *App, _: *httpz.Request, res: *httpz.Response) !void {
     ;
 }
 fn httpClear(_: *App, _: *httpz.Request, res: *httpz.Response) !void { std.debug.print("/clear\n", .{});
-    session = [_]u8{0} ** 8;
+    session = @splat(0);
     res.header("Access-Control-Allow-Origin", "*");
     try res.json(.{
         .version = "1.0",
@@ -593,7 +593,7 @@ fn httpSign(app: *App, req: *httpz.Request, res: *httpz.Response) !void {
             std.debug.print(" - content length: {d}\n", .{cnt.string.len});
             var signature: std.ArrayList(u8) = .empty;
             if (json.get("sid")) |sid| {
-                if (!std.mem.eql(u8, &session, &[_]u8{0} ** 8) and std.mem.eql(u8, &session, sid.string)) {
+                if (!std.mem.allEqual(u8, &session, 0) and std.mem.eql(u8, &session, sid.string)) {
                     std.debug.print(" - reusing old session: {s}\n", .{sid.string});
                     // reuse old selection and pin
                 }
