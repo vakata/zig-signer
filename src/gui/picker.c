@@ -163,8 +163,6 @@ static App *i_create(void)
 {
     App *app = heap_new0(App);
     Panel *panel = NULL;
-    S2Df screen;
-    S2Df size;
 
     app->window = window_create(ekWINDOW_TITLE | ekWINDOW_CLOSE | ekWINDOW_RETURN | ekWINDOW_ESC);
     panel = i_panel(app);
@@ -173,9 +171,6 @@ static App *i_create(void)
     window_title(app->window, "Zig Signer");
     window_OnClose(app->window, listener(app, i_OnClose, App));
 
-    screen = gui_resolution();
-    size = window_get_size(app->window);
-    window_origin(app->window, v2df((screen.width - size.width) / 2.f, (screen.height - size.height) / 2.f));
     window_show(app->window);
 #if defined(__MACOS__)
     picker_macos_activate(window_imp(app->window));
