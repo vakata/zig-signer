@@ -11,7 +11,7 @@ const WindowsDynLib = struct {
     extern "kernel32" fn FreeLibrary(module: std.os.windows.HMODULE) callconv(.winapi) std.os.windows.BOOL;
 
     fn open(path: []const u8) Error!WindowsDynLib {
-        const path_z = std.heap.page_allocator.dupeZ(u8, path) catch return error.LoadLibraryFailed;
+        const path_z = std.heap.page_allocator.dupeSentinel(u8, path, 0) catch return error.LoadLibraryFailed;
         defer std.heap.page_allocator.free(path_z);
         return .{ .handle = LoadLibraryA(path_z.ptr) orelse return error.LoadLibraryFailed };
     }
